@@ -77,8 +77,8 @@
       "wind_unit": "kmh",
       "notification_enabled": true,
       "created_at": "2026-09-27T15:24:23.919Z",
-      "updated_at": "2026-09-27T16:25:39.216Z",
-      "theme": "glass"
+      "updated_at": "2026-09-27T17:33:36.195Z",
+      "theme": "violet-cosmos"
     }
   ],
   "saved_locations": [
@@ -290,5 +290,207 @@
       "last_checked": "2026-09-27T16:12:51.754Z",
       "error_count": 0
     }
-  ]
+  ],
+  "ai_conversations": [
+    {
+      "id": "conv-1790531238248-0gf6u",
+      "user_id": "usr-demo-01",
+      "title": "My Trip to Coorg",
+      "created_at": "2026-09-27T17:47:18.248Z",
+      "updated_at": "2026-09-27T17:47:18.796Z"
+    }
+  ],
+  "ai_messages": [
+    {
+      "id": "msg-1790531238795-n8yi7",
+      "conversation_id": "conv-1790531238248-0gf6u",
+      "role": "user",
+      "content": "Will it rain on my drive to Coorg?",
+      "created_at": "2026-09-27T17:47:18.795Z"
+    },
+    {
+      "id": "msg-1790531238796-623py",
+      "conversation_id": "conv-1790531238248-0gf6u",
+      "role": "assistant",
+      "content": "🌧️ Precipitation Outlook for Bengaluru\n\nCurrent Condition: Mainly Clear\nRain Probability: 6%\nPrecipitation Volume: 0 mm\nCloud Stratum: Overcast layer active\n\nRecommendation:\nAn umbrella is not strictly required right now, as rain probability is low.\n\nWhy:\nObserved tropospheric precipitation index is 6%.\n\nData updated:\n1 minute ago",
+      "metadata": {
+        "location": "Bengaluru",
+        "provider": "Mausam Weather Synthesizer",
+        "response_time": 58,
+        "token_usage": {
+          "prompt_tokens": 9,
+          "completion_tokens": 61,
+          "total_tokens": 70
+        },
+        "sources": [
+          "Open-Meteo / IMD-ECMWF Core",
+          "Mausam Weather Synthesizer"
+        ],
+        "intent": "rain_forecast"
+      },
+      "created_at": "2026-09-27T17:47:18.796Z"
+    }
+  ],
+  "ai_memory": [
+    {
+      "id": "mem-1790530958872",
+      "user_id": "usr-demo-01",
+      "preferred_activities": [
+        "morning running",
+        "cycling"
+      ],
+      "saved_locations": [
+        "Home",
+        "Office"
+      ],
+      "weather_interests": [
+        "AQI",
+        "Precipitation",
+        "UV Index"
+      ],
+      "updated_at": "2026-09-27T17:42:38.872Z"
+    }
+  ],
+  "ai_usage": [
+    {
+      "id": "use-1790531041692-gvs5",
+      "user_id": "usr-demo-01",
+      "model": "Mausam Weather Synthesizer",
+      "provider": "Mausam Weather Synthesizer",
+      "request_time": "2026-09-27T17:44:01.691Z",
+      "response_time_ms": 83,
+      "success": true,
+      "token_usage": {
+        "prompt_tokens": 9,
+        "completion_tokens": 64,
+        "total_tokens": 72
+      },
+      "cost_estimate": 0.000010799999999999998,
+      "created_at": "2026-09-27T17:44:01.692Z"
+    },
+    {
+      "id": "use-1790531086791-j3dx",
+      "user_id": "usr-demo-01",
+      "model": "Mausam Weather Synthesizer",
+      "provider": "Mausam Weather Synthesizer",
+      "request_time": "2026-09-27T17:44:46.791Z",
+      "response_time_ms": 554,
+      "success": true,
+      "token_usage": {
+        "prompt_tokens": 5,
+        "completion_tokens": 61,
+        "total_tokens": 66
+      },
+      "cost_estimate": 0.0000099,
+      "created_at": "2026-09-27T17:44:46.791Z"
+    },
+    {
+      "id": "use-1790531238790-9e4k",
+      "user_id": "usr-demo-01",
+      "model": "Mausam Weather Synthesizer",
+      "provider": "Mausam Weather Synthesizer",
+      "request_time": "2026-09-27T17:47:18.790Z",
+      "response_time_ms": 58,
+      "success": true,
+      "token_usage": {
+        "prompt_tokens": 9,
+        "completion_tokens": 61,
+        "total_tokens": 70
+      },
+      "cost_estimate": 0.0000105,
+      "created_at": "2026-09-27T17:47:18.790Z"
+    },
+    {
+      "id": "use-1790531344717-66a2",
+      "user_id": "usr-demo-01",
+      "model": "Mausam Weather Synthesizer",
+      "provider": "Mausam Weather Synthesizer",
+      "request_time": "2026-09-27T17:49:04.717Z",
+      "response_time_ms": 5,
+      "success": true,
+      "token_usage": {
+        "prompt_tokens": 3,
+        "completion_tokens": 70,
+        "total_tokens": 73
+      },
+      "cost_estimate": 0.000010949999999999998,
+      "created_at": "2026-09-27T17:49:04.717Z"
+    }
+  ],
+  "ai_feedback": [
+    {
+      "id": "fb-1790531318199-uhr6",
+      "user_id": "usr-demo-01",
+      "message_id": "msg-test-01",
+      "rating": "thumbs_up",
+      "created_at": "2026-09-27T17:48:38.199Z"
+    }
+  ],
+  "weather_context": [
+    {
+      "id": "ctx-1790531041702",
+      "location_name": "Bengaluru",
+      "latitude": 12.9716,
+      "longitude": 77.5946,
+      "temperature": 24,
+      "feels_like": 26,
+      "condition": "Mainly Clear",
+      "rain_probability": 6,
+      "aqi": 65,
+      "uv_index": 1,
+      "wind_speed": 8,
+      "alerts": [],
+      "fetched_at": "2026-09-27T17:44:01.700Z",
+      "created_at": "2026-09-27T17:44:01.702Z"
+    },
+    {
+      "id": "ctx-1790531086798",
+      "location_name": "Bengaluru",
+      "latitude": 12.9716,
+      "longitude": 77.5946,
+      "temperature": 24,
+      "feels_like": 26,
+      "condition": "Mainly Clear",
+      "rain_probability": 6,
+      "aqi": 65,
+      "uv_index": 1,
+      "wind_speed": 8,
+      "alerts": [],
+      "fetched_at": "2026-09-27T17:44:46.797Z",
+      "created_at": "2026-09-27T17:44:46.798Z"
+    },
+    {
+      "id": "ctx-1790531238798",
+      "location_name": "Bengaluru",
+      "latitude": 12.9716,
+      "longitude": 77.5946,
+      "temperature": 24,
+      "feels_like": 26,
+      "condition": "Mainly Clear",
+      "rain_probability": 6,
+      "aqi": 65,
+      "uv_index": 1,
+      "wind_speed": 8,
+      "alerts": [],
+      "fetched_at": "2026-09-27T17:47:18.798Z",
+      "created_at": "2026-09-27T17:47:18.798Z"
+    },
+    {
+      "id": "ctx-1790531344719",
+      "location_name": "Bengaluru",
+      "latitude": 12.9716,
+      "longitude": 77.5946,
+      "temperature": 24,
+      "feels_like": 26,
+      "condition": "Mainly Clear",
+      "rain_probability": 6,
+      "aqi": 65,
+      "uv_index": 1,
+      "wind_speed": 8,
+      "alerts": [],
+      "fetched_at": "2026-09-27T17:49:04.719Z",
+      "created_at": "2026-09-27T17:49:04.719Z"
+    }
+  ],
+  "activity_preferences": []
 }

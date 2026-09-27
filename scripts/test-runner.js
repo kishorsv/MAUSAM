@@ -426,6 +426,194 @@ runTest('Weather Motion Engine: Living Weather triggers rain streaks for active 
   assert.strictEqual(state.accentColor, '#38bdf8');
 });
 
+// 10. AI Assistant & Intelligence Architecture Tests
+const { intentRouter } = require('../src/lib/ai/intent-router.ts');
+const { responseValidator } = require('../src/lib/ai/validator.ts');
+const { synthesizerProvider } = require('../src/lib/ai/providers/synthesizer.ts');
+const { aiService } = require('../src/lib/ai/service.ts');
+const { db } = require('../src/lib/db/database.ts');
+
+runTest('AI Intent Router: Accurately classifies running and fitness queries', () => {
+  const route = intentRouter.classify('Can I go for a run in Cubbon park right now?');
+  assert.strictEqual(route.intent, 'running_fitness');
+  assert.ok(route.requiredContexts.includes('fitness'));
+  assert.ok(route.requiredContexts.includes('weather'));
+  assert.strictEqual(route.isStructuredWeatherQuery, true);
+  assert.ok(route.extractedLocation?.toLowerCase().includes('cubbon'));
+});
+
+runTest('AI Intent Router: Accurately classifies precipitation and umbrella queries', () => {
+  const route = intentRouter.classify('Will it rain today? Should I carry an umbrella?');
+  assert.strictEqual(route.intent, 'rain_forecast');
+  assert.ok(route.requiredContexts.includes('forecast'));
+  assert.strictEqual(route.isStructuredWeatherQuery, true);
+});
+
+runTest('AI Response Validator: Confirms truthful meteorological numbers and catches discrepancies', () => {
+  const mockContext = {
+    intent: 'running_fitness',
+    location: { name: 'Bengaluru', lat: 12.97, lon: 77.59, source: 'current_gps' },
+    weather: {
+      temperature: 24,
+      feelsLike: 25,
+      condition: 'Clear',
+      rainProbability: 10,
+      precipitationMm: 0,
+      windSpeed: 10,
+      windDirection: 180,
+      humidity: 60,
+      uvIndex: 5,
+      visibilityKm: 10,
+      pressureHpa: 1012,
+      sunrise: '06:12',
+      sunset: '18:25',
+      isDay: true,
+      dataAgeSeconds: 120,
+      dataSource: 'Open-Meteo'
+    },
+    userContext: { language: 'en', temperatureUnit: 'celsius', lifestyle: ['fitness'], savedLocations: [] },
+    alerts: []
+  };
+
+  // Truthful response matching 24°C and 10% rain
+  const validResult = responseValidator.validate('Temperature is 24°C with 10% chance of rain.', mockContext);
+  assert.strictEqual(validResult.isValid, true);
+  assert.strictEqual(validResult.warnings.length, 0);
+
+  // Wildly hallucinated response (claiming 45°C when actual is 24°C)
+  const invalidResult = responseValidator.validate('Temperature is 45°C with severe heat.', mockContext);
+  assert.strictEqual(invalidResult.isValid, false);
+  assert.ok(invalidResult.warnings.length > 0);
+});
+
+runTest('AI Synthesizer Provider: Formats structured decision output with key metrics and timestamps', async () => {
+  const mockContext = {
+    intent: 'running_fitness',
+    location: { name: 'Bengaluru', lat: 12.97, lon: 77.59, source: 'current_gps' },
+    weather: {
+      temperature: 22,
+      feelsLike: 23,
+      condition: 'Partly Cloudy',
+      rainProbability: 15,
+      precipitationMm: 0,
+      windSpeed: 12,
+      windDirection: 200,
+      humidity: 65,
+      uvIndex: 4,
+      visibilityKm: 10,
+      pressureHpa: 1013,
+      sunrise: '06:12',
+      sunset: '18:25',
+      isDay: true,
+      dataAgeSeconds: 60,
+      dataSource: 'Open-Meteo'
+    },
+    airQuality: { aqi: 45, status: 'Good' },
+    userContext: { language: 'en', temperatureUnit: 'celsius', lifestyle: ['fitness'], savedLocations: [] },
+    alerts: []
+  };
+
+  const res = await synthesizerProvider.generateText('Can I run now?', mockContext, '');
+  assert.ok(res.text.includes('Running conditions'));
+  assert.ok(res.text.includes('22°C'));
+  assert.ok(res.text.includes('Best window'));
+  assert.ok(res.text.includes('Data updated'));
+});
+
+runTest('AI Synthesizer Provider: Supports streaming token emission with metadata', async () => {
+  const mockContext = {
+    intent: 'weather_now',
+    location: { name: 'Bengaluru', lat: 12.97, lon: 77.59, source: 'current_gps' },
+    weather: {
+      temperature: 25,
+      feelsLike: 26,
+      condition: 'Sunny',
+      rainProbability: 5,
+      precipitationMm: 0,
+      windSpeed: 8,
+      windDirection: 90,
+      humidity: 50,
+      uvIndex: 7,
+      visibilityKm: 10,
+      pressureHpa: 1014,
+      sunrise: '06:12',
+      sunset: '18:25',
+      isDay: true,
+      dataAgeSeconds: 90,
+      dataSource: 'Open-Meteo'
+    },
+    userContext: { language: 'en', temperatureUnit: 'celsius', lifestyle: [], savedLocations: [] },
+    alerts: []
+  };
+
+  let tokenCount = 0;
+  let finalChunkReceived = false;
+
+  await synthesizerProvider.generateStream('Weather now?', mockContext, '', (chunk) => {
+    if (chunk.token) tokenCount++;
+    if (chunk.isDone) finalChunkReceived = true;
+  });
+
+  assert.ok(tokenCount > 0);
+  assert.strictEqual(finalChunkReceived, true);
+});
+
+runTest('AI Synthesizer Provider: Multilingual output in Kannada and Hindi retains numbers', async () => {
+  const mockContext = {
+    intent: 'running_fitness',
+    location: { name: 'Bengaluru', lat: 12.97, lon: 77.59, source: 'current_gps' },
+    weather: {
+      temperature: 21,
+      feelsLike: 21,
+      condition: 'Clear',
+      rainProbability: 10,
+      precipitationMm: 0,
+      windSpeed: 8,
+      windDirection: 180,
+      humidity: 55,
+      uvIndex: 3,
+      visibilityKm: 10,
+      pressureHpa: 1012,
+      sunrise: '06:12',
+      sunset: '18:25',
+      isDay: true,
+      dataAgeSeconds: 120,
+      dataSource: 'Open-Meteo'
+    },
+    userContext: { language: 'kn', temperatureUnit: 'celsius', lifestyle: ['fitness'], savedLocations: [] },
+    alerts: []
+  };
+
+  const resKn = await synthesizerProvider.generateText('ಓಡಲು ಸಾಧ್ಯವೇ?', mockContext, '');
+  assert.ok(resKn.text.includes('21°C'));
+  assert.ok(resKn.text.includes('ತಾಪಮಾನ'));
+
+  mockContext.userContext.language = 'hi';
+  const resHi = await synthesizerProvider.generateText('क्या मैं दौड़ सकता हूँ?', mockContext, '');
+  assert.ok(resHi.text.includes('21°C'));
+  assert.ok(resHi.text.includes('तापमान'));
+});
+
+runTest('Database AI Conversation Persistence: Creates, retrieves, and clears conversations', async () => {
+  const testUserId = `usr-test-${Date.now()}`;
+  const conv = await db.createAIConversation(testUserId, 'Test Weather Chat');
+  assert.ok(conv.id);
+  assert.strictEqual(conv.user_id, testUserId);
+
+  const msg = await db.createAIMessage(conv.id, 'user', 'Will it rain?');
+  assert.strictEqual(msg.conversation_id, conv.id);
+  assert.strictEqual(msg.content, 'Will it rain?');
+
+  const messages = await db.getAIMessages(conv.id);
+  assert.strictEqual(messages.length, 1);
+
+  const cleared = await db.clearAIConversations(testUserId);
+  assert.strictEqual(cleared, true);
+
+  const remaining = await db.getAIConversations(testUserId);
+  assert.strictEqual(remaining.length, 0);
+});
+
 console.log('\n====================================================');
 console.log(`TEST RESULTS: ${passedTests} PASSED, ${failedTests} FAILED`);
 console.log('====================================================');

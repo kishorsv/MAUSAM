@@ -5,7 +5,9 @@ import { Pool } from 'pg';
 import { 
   User, Profile, UserPreferences, SavedLocation, TravelPlan, 
   PlannedEvent, AppNotification, NotificationPreferences, 
-  SensorDevice, SensorReading, RouteTrip, GroupWeatherItem, WeatherSource 
+  SensorDevice, SensorReading, RouteTrip, GroupWeatherItem, WeatherSource,
+  AIConversation, AIMessage, AIMemory, AIUsage, AIFeedback, 
+  WeatherContextRecord, ActivityPreferences
 } from './types';
 
 interface DatabaseData {
@@ -22,6 +24,13 @@ interface DatabaseData {
   route_trips: RouteTrip[];
   group_weather: GroupWeatherItem[];
   weather_sources: WeatherSource[];
+  ai_conversations: AIConversation[];
+  ai_messages: AIMessage[];
+  ai_memory: AIMemory[];
+  ai_usage: AIUsage[];
+  ai_feedback: AIFeedback[];
+  weather_context: WeatherContextRecord[];
+  activity_preferences: ActivityPreferences[];
 }
 
 class DatabaseRepository {
@@ -60,6 +69,13 @@ class DatabaseRepository {
         parsed.route_trips = parsed.route_trips || [];
         parsed.group_weather = parsed.group_weather || [];
         parsed.weather_sources = parsed.weather_sources || [];
+        parsed.ai_conversations = parsed.ai_conversations || [];
+        parsed.ai_messages = parsed.ai_messages || [];
+        parsed.ai_memory = parsed.ai_memory || [];
+        parsed.ai_usage = parsed.ai_usage || [];
+        parsed.ai_feedback = parsed.ai_feedback || [];
+        parsed.weather_context = parsed.weather_context || [];
+        parsed.activity_preferences = parsed.activity_preferences || [];
         
         if (parsed.weather_sources.length === 0) {
           parsed.weather_sources = this.getDefaultWeatherSources();
@@ -345,7 +361,14 @@ class DatabaseRepository {
           created_at: new Date().toISOString()
         }
       ],
-      weather_sources: this.getDefaultWeatherSources()
+      weather_sources: this.getDefaultWeatherSources(),
+      ai_conversations: [],
+      ai_messages: [],
+      ai_memory: [],
+      ai_usage: [],
+      ai_feedback: [],
+      weather_context: [],
+      activity_preferences: []
     };
 
     fs.writeFileSync(this.localFilePath, JSON.stringify(initialData, null, 2), 'utf-8');
@@ -803,6 +826,189 @@ class DatabaseRepository {
         beach: data.user_preferences.filter(p => p.beach_enabled).length,
       }
     };
+  }
+
+  // --- AI CONVERSATIONS & CHAT ---
+  async getAIConversations(userId: string): Promise<AIConversation[]> {
+    const data = await this.loadLocalData();
+    return data.ai_conversations
+      .filter(c => c.user_id === userId)
+      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+  }
+
+  async getAIConversation(conversationId: string): Promise<AIConversation | null> {
+    const data = await this.loadLocalData();
+    return data.ai_conversations.find(c => c.id === conversationId) || null;
+  }
+
+  async createAIConversation(userId: string, title?: string): Promise<AIConversation> {
+    const data = await this.loadLocalData();
+    const newConv: AIConversation = {
+      id: `conv-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      user_id: userId,
+      title: title || 'New Weather Consultation',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    data.ai_conversations.unshift(newConv);
+    this.saveLocalData();
+    return newConv;
+  }
+
+  async updateAIConversation(conversationId: string, title: string): Promise<AIConversation | null> {
+    const data = await this.loadLocalData();
+    const conv = data.ai_conversations.find(c => c.id === conversationId);
+    if (!conv) return null;
+    conv.title = title;
+    conv.updated_at = new Date().toISOString();
+    this.saveLocalData();
+    return conv;
+  }
+
+  async deleteAIConversation(conversationId: string): Promise<boolean> {
+    const data = await this.loadLocalData();
+    data.ai_conversations = data.ai_conversations.filter(c => c.id !== conversationId);
+    data.ai_messages = data.ai_messages.filter(m => m.conversation_id !== conversationId);
+    this.saveLocalData();
+    return true;
+  }
+
+  async clearAIConversations(userId: string): Promise<boolean> {
+    const data = await this.loadLocalData();
+    const userConvIds = new Set(data.ai_conversations.filter(c => c.user_id === userId).map(c => c.id));
+    data.ai_conversations = data.ai_conversations.filter(c => c.user_id !== userId);
+    data.ai_messages = data.ai_messages.filter(m => !userConvIds.has(m.conversation_id));
+    this.saveLocalData();
+    return true;
+  }
+
+  async getAIMessages(conversationId: string, limit = 50): Promise<AIMessage[]> {
+    const data = await this.loadLocalData();
+    return data.ai_messages
+      .filter(m => m.conversation_id === conversationId)
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+      .slice(-limit);
+  }
+
+  async createAIMessage(
+    conversationId: string, 
+    role: 'user' | 'assistant' | 'system', 
+    content: string, 
+    metadata?: any
+  ): Promise<AIMessage> {
+    const data = await this.loadLocalData();
+    const newMsg: AIMessage = {
+      id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      conversation_id: conversationId,
+      role,
+      content,
+      metadata,
+      created_at: new Date().toISOString()
+    };
+    data.ai_messages.push(newMsg);
+
+    // Update conversation updated_at and auto-title
+    const conv = data.ai_conversations.find(c => c.id === conversationId);
+    if (conv) {
+      conv.updated_at = new Date().toISOString();
+      if (role === 'user' && conv.title === 'New Weather Consultation') {
+        conv.title = content.length > 40 ? content.slice(0, 37) + '...' : content;
+      }
+    }
+
+    this.saveLocalData();
+    return newMsg;
+  }
+
+  // --- AI MEMORY ---
+  async getAIMemory(userId: string): Promise<AIMemory> {
+    const data = await this.loadLocalData();
+    let mem = data.ai_memory.find(m => m.user_id === userId);
+    if (!mem) {
+      mem = {
+        id: `mem-${Date.now()}`,
+        user_id: userId,
+        preferred_activities: ['morning running', 'cycling'],
+        saved_locations: ['Home', 'Office'],
+        weather_interests: ['AQI', 'Precipitation', 'UV Index'],
+        updated_at: new Date().toISOString()
+      };
+      data.ai_memory.push(mem);
+      this.saveLocalData();
+    }
+    return mem;
+  }
+
+  async updateAIMemory(userId: string, updates: Partial<AIMemory>): Promise<AIMemory> {
+    const data = await this.loadLocalData();
+    let mem = data.ai_memory.find(m => m.user_id === userId);
+    if (!mem) {
+      mem = {
+        id: `mem-${Date.now()}`,
+        user_id: userId,
+        preferred_activities: [],
+        saved_locations: [],
+        weather_interests: [],
+        updated_at: new Date().toISOString()
+      };
+      data.ai_memory.push(mem);
+    }
+    Object.assign(mem, updates, { updated_at: new Date().toISOString() });
+    this.saveLocalData();
+    return mem;
+  }
+
+  // --- AI USAGE & TELEMETRY ---
+  async recordAIUsage(usage: Omit<AIUsage, 'id' | 'created_at'>): Promise<AIUsage> {
+    const data = await this.loadLocalData();
+    const entry: AIUsage = {
+      id: `use-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      ...usage,
+      created_at: new Date().toISOString()
+    };
+    data.ai_usage.push(entry);
+    this.saveLocalData();
+    return entry;
+  }
+
+  async getAIUsageStats(userId?: string) {
+    const data = await this.loadLocalData();
+    const entries = userId ? data.ai_usage.filter(u => u.user_id === userId) : data.ai_usage;
+    const totalRequests = entries.length;
+    const totalTokens = entries.reduce((sum, u) => sum + (u.token_usage?.total_tokens || 0), 0);
+    const avgLatencyMs = totalRequests > 0 ? Math.round(entries.reduce((sum, u) => sum + u.response_time_ms, 0) / totalRequests) : 0;
+    const successCount = entries.filter(u => u.success).length;
+    const successRate = totalRequests > 0 ? Math.round((successCount / totalRequests) * 100) : 100;
+    return { totalRequests, totalTokens, avgLatencyMs, successRate };
+  }
+
+  // --- AI FEEDBACK ---
+  async recordAIFeedback(feedback: Omit<AIFeedback, 'id' | 'created_at'>): Promise<AIFeedback> {
+    const data = await this.loadLocalData();
+    const entry: AIFeedback = {
+      id: `fb-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      ...feedback,
+      created_at: new Date().toISOString()
+    };
+    data.ai_feedback.push(entry);
+    this.saveLocalData();
+    return entry;
+  }
+
+  // --- WEATHER CONTEXT SNAPSHOTS ---
+  async saveWeatherContext(context: Omit<WeatherContextRecord, 'id' | 'created_at'>): Promise<WeatherContextRecord> {
+    const data = await this.loadLocalData();
+    const entry: WeatherContextRecord = {
+      id: `ctx-${Date.now()}`,
+      ...context,
+      created_at: new Date().toISOString()
+    };
+    data.weather_context.push(entry);
+    if (data.weather_context.length > 100) {
+      data.weather_context = data.weather_context.slice(-100);
+    }
+    this.saveLocalData();
+    return entry;
   }
 }
 

@@ -192,3 +192,94 @@ export interface IntelligenceFeedItem {
   source: string;
   freshness: string;
 }
+
+export interface AIConversation {
+  id: string;
+  user_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AIMessage {
+  id: string;
+  conversation_id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  metadata?: {
+    weather_context_id?: string;
+    location?: string;
+    model?: string;
+    provider?: string;
+    response_time?: number;
+    token_usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+    sources?: string[];
+    confidence?: string;
+    data_age_seconds?: number;
+    intent?: string;
+  };
+  created_at: string;
+}
+
+export interface AIMemory {
+  id: string;
+  user_id: string;
+  preferred_activities: string[];
+  saved_locations: string[];
+  weather_interests: string[];
+  notification_preferences?: Record<string, boolean>;
+  travel_preferences?: Record<string, any>;
+  notes?: string[];
+  updated_at: string;
+}
+
+export interface AIUsage {
+  id: string;
+  user_id: string;
+  model: string;
+  provider: string;
+  request_time: string;
+  response_time_ms: number;
+  success: boolean;
+  token_usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+  cost_estimate?: number;
+  created_at: string;
+}
+
+export interface AIFeedback {
+  id: string;
+  user_id: string;
+  message_id: string;
+  rating: 'thumbs_up' | 'thumbs_down';
+  feedback_text?: string;
+  created_at: string;
+}
+
+export interface WeatherContextRecord {
+  id: string;
+  location_name: string;
+  latitude: number;
+  longitude: number;
+  temperature: number;
+  feels_like: number;
+  condition: string;
+  rain_probability: number;
+  aqi?: number;
+  uv_index: number;
+  wind_speed: number;
+  alerts?: string[];
+  fetched_at: string;
+  created_at: string;
+}
+
+export interface ActivityPreferences {
+  id: string;
+  user_id: string;
+  running_preferred_temp_min: number;
+  running_preferred_temp_max: number;
+  outdoor_threshold_rain_prob: number;
+  cycling_max_wind_speed: number;
+  travel_alert_level: 'minor' | 'moderate' | 'severe';
+  updated_at: string;
+}
+
