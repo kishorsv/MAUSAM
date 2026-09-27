@@ -1,5 +1,7 @@
 # MAUSAM — Smart Personalized Weather Intelligence Platform
 
+🔗 Live Demo: https://mausam-mzqf.vercel.app/
+
 > **“Development of personalized homepage for ‘Mausam’ mobile application.”**
 
 Mausam is an intelligent, full-stack, production-quality weather intelligence platform that automatically personalizes the homepage according to user lifestyles, health needs, travel plans, fitness schedules, family safety, agriculture requirements, and real-time atmospheric severity.
