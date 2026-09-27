@@ -68,6 +68,11 @@ import { IntelligenceFeed } from '@/components/weather/IntelligenceFeed';
 import { Sidebar } from '@/components/navigation/Sidebar';
 import { AIAssistantHeroCard } from '@/components/ai/AIAssistantHeroCard';
 import { GlassPanel } from '@/components/common/GlassPanel';
+import { FeatureDock } from '@/components/features/FeatureDock';
+import { ActiveFeatureWorldCard } from '@/components/features/ActiveFeatureWorldCard';
+import { VoiceAssistantBar } from '@/components/ai/VoiceAssistantBar';
+import { FeatureWorldId } from '@/lib/theme/scene-registry';
+import { weatherSceneController } from '@/lib/theme/weather-scene-controller';
 
 // Atmospheric Living Background & Theme Engine
 import { useTheme } from '@/components/theme/ThemeContext';
@@ -117,6 +122,17 @@ export default function HomePage() {
   const [unreadNotifications, setUnreadNotifications] = useState(2);
   const [isOffline, setIsOffline] = useState(false);
   const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([]);
+  const [activeFeatureWorld, setActiveFeatureWorld] = useState<FeatureWorldId | null>(null);
+
+  const handleSelectFeatureWorld = (featureId: FeatureWorldId) => {
+    if (activeFeatureWorld === featureId) {
+      setActiveFeatureWorld(null);
+      weatherSceneController.selectFeature(null);
+    } else {
+      setActiveFeatureWorld(featureId);
+      weatherSceneController.selectFeature(featureId);
+    }
+  };
 
   // Browser Network Connectivity Monitor
   useEffect(() => {
@@ -169,6 +185,7 @@ export default function HomePage() {
       const weatherData: WeatherPayload = await weatherRes.json();
       setWeather(weatherData);
       setWeatherForTheme(weatherData);
+      weatherSceneController.updateWeather(weatherData);
 
       // FAST FIRST PAINT: Compute card priorities instantly in 0ms on the client!
       const immediateCards = personalizationEngine.calculateCardPriorities(weatherData, prefsOverride || preferences);
@@ -312,7 +329,7 @@ export default function HomePage() {
       <Sidebar onOpenAI={() => handleOpenAIWithPrompt()} />
 
       {/* Main Content Dashboard Area */}
-      <div className="flex-1 flex flex-col min-w-0 pb-20 sm:pb-12">
+      <div className="flex-1 flex flex-col min-w-0 pb-32 sm:pb-28">
         {/* Floating Top Header Bar */}
         <Header
           currentLocation={weather?.location || selectedLocation}
@@ -411,6 +428,16 @@ export default function HomePage() {
               weather={weather} 
               onOpenAI={handleOpenAIWithPrompt} 
             />
+
+            {/* Active Feature World Interactive Intelligence Console */}
+            {activeFeatureWorld && (
+              <ActiveFeatureWorldCard
+                selectedFeature={activeFeatureWorld}
+                weather={weather}
+                onClose={() => handleSelectFeatureWorld(activeFeatureWorld)}
+                onAskAI={handleOpenAIWithPrompt}
+              />
+            )}
 
             {/* Render Cards Dynamically in Priority Order */}
             {prioritizedCards.map((card) => {
@@ -572,19 +599,32 @@ export default function HomePage() {
 
             {/* Interactive Weather Radar Map */}
             <WeatherMapComponent weather={weather} />
+
+            {/* Interactive Feature Worlds Selector Dock */}
+            <FeatureDock
+              selectedFeature={activeFeatureWorld}
+              onSelectFeature={handleSelectFeatureWorld}
+            />
           </div>
         )}
       </main>
       </div>
 
+      {/* Persistent Floating Multi-Modal Voice & AI Assistant */}
+      <VoiceAssistantBar
+        weather={weather}
+        selectedFeature={activeFeatureWorld}
+        onOpenFullAssistant={handleOpenAIWithPrompt}
+      />
+
       {/* Floating AI Assistant Trigger Button (Bottom Right) */}
-      <div className="fixed bottom-16 sm:bottom-6 right-6 z-40">
+      <div className="fixed bottom-24 sm:bottom-8 right-6 z-30 hidden lg:block">
         <button
           onClick={() => handleOpenAIWithPrompt()}
           className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-gradient-to-r from-violet-600 via-primary-600 to-cyan-500 hover:scale-105 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-2xl transition-all shadow-glow-primary border border-white/20"
         >
           <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
-          <span>Ask Mausam AI</span>
+          <span>Full Workspace</span>
         </button>
       </div>
 

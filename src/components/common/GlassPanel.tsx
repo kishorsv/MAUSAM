@@ -95,3 +95,120 @@ export const GlassPanel = React.forwardRef<HTMLDivElement, GlassPanelProps>(func
     </Component>
   );
 });
+
+export const GlassCard = React.forwardRef<HTMLDivElement, GlassPanelProps>(function GlassCard(props, ref) {
+  return <GlassPanel ref={ref} variant="card" hoverEffect {...props} />;
+});
+
+export interface GlassButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  size?: 'sm' | 'md' | 'lg';
+  glow?: boolean;
+}
+
+export const GlassButton = React.forwardRef<HTMLButtonElement, GlassButtonProps>(function GlassButton(
+  {
+    children,
+    className = '',
+    variant = 'secondary',
+    size = 'md',
+    glow = false,
+    disabled = false,
+    ...props
+  },
+  ref
+) {
+  const sizeClasses = {
+    sm: 'px-3 py-1.5 text-xs rounded-xl',
+    md: 'px-4 py-2.5 text-sm rounded-2xl',
+    lg: 'px-6 py-3.5 text-base rounded-2xl'
+  }[size];
+
+  const variantClasses = {
+    primary: 'bg-[var(--primary)] text-white hover:brightness-110 border border-[var(--primary)]/50 shadow-md',
+    secondary: 'bg-white/10 hover:bg-white/15 text-[var(--foreground)] border border-white/10 hover:border-white/25 shadow-sm',
+    ghost: 'bg-transparent hover:bg-white/10 text-[var(--foreground)] border border-transparent hover:border-white/10',
+    danger: 'bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 border border-rose-500/30'
+  }[variant];
+
+  const glowClass = glow ? 'shadow-[var(--glow)]' : '';
+
+  return (
+    <button
+      ref={ref}
+      disabled={disabled}
+      className={`relative inline-flex items-center justify-center font-bold tracking-tight backdrop-blur-xl transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:pointer-events-none ${sizeClasses} ${variantClasses} ${glowClass} ${className}`}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+});
+
+export interface GlassInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  icon?: React.ReactNode;
+}
+
+export const GlassInput = React.forwardRef<HTMLInputElement, GlassInputProps>(function GlassInput(
+  { className = '', icon, ...props },
+  ref
+) {
+  return (
+    <div className="relative flex items-center w-full">
+      {icon && (
+        <div className="absolute left-3.5 pointer-events-none text-slate-400">
+          {icon}
+        </div>
+      )}
+      <input
+        ref={ref}
+        className={`w-full py-2.5 rounded-2xl bg-white/5 border border-white/10 focus:border-[var(--primary)] focus:bg-white/10 text-[var(--foreground)] placeholder-slate-400 backdrop-blur-xl outline-none transition-all duration-200 text-sm ${
+          icon ? 'pl-10 pr-4' : 'px-4'
+        } ${className}`}
+        {...props}
+      />
+    </div>
+  );
+});
+
+export interface GlassModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title?: string;
+  children: React.ReactNode;
+  className?: string;
+}
+
+export function GlassModal({ isOpen, onClose, title, children, className = '' }: GlassModalProps) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-black/70 backdrop-blur-md transition-opacity animate-in fade-in"
+        onClick={onClose}
+      />
+
+      {/* Modal Card */}
+      <GlassPanel
+        variant="elevated"
+        glow="primary"
+        className={`relative z-10 w-full max-w-lg p-6 animate-in zoom-in-95 duration-200 ${className}`}
+      >
+        {title && (
+          <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/10">
+            <h3 className="text-lg font-extrabold text-[var(--foreground)]">{title}</h3>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-xl hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+        {children}
+      </GlassPanel>
+    </div>
+  );
+}

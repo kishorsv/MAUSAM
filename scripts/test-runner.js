@@ -701,6 +701,105 @@ runTest('Theme Tokens: All 10 themes contain complete Dark and Light token contr
   }
 });
 
+// 13. Dynamic Weather World & Background Engine Tests
+const { dynamicWeatherBackgroundEngine } = require('../src/lib/theme/dynamic-background-engine.ts');
+const { weatherSceneController } = require('../src/lib/theme/weather-scene-controller.ts');
+const { FEATURE_WORLDS } = require('../src/components/features/FeatureDock.tsx');
+
+runTest('Dynamic Weather Background Engine: Deterministic WMO and Condition Mapping', () => {
+  // CLEAR -> sunny (day) & clear-night (night)
+  assert.strictEqual(dynamicWeatherBackgroundEngine.mapWeatherToSceneId(0, 0, 10, 'day'), 'sunny');
+  assert.strictEqual(dynamicWeatherBackgroundEngine.mapWeatherToSceneId(0, 0, 10, 'night'), 'clear-night');
+
+  // PARTLY_CLOUDY (WMO 2) -> sunny-clouds
+  assert.strictEqual(dynamicWeatherBackgroundEngine.mapWeatherToSceneId(2, 0, 10, 'day'), 'sunny-clouds');
+
+  // CLOUDY (WMO 3) -> cloudy
+  assert.strictEqual(dynamicWeatherBackgroundEngine.mapWeatherToSceneId(3, 0, 10, 'day'), 'cloudy');
+
+  // LIGHT_RAIN (WMO 51) -> rain-light
+  assert.strictEqual(dynamicWeatherBackgroundEngine.mapWeatherToSceneId(51, 45, 8, 'day'), 'rain-light');
+
+  // MODERATE_RAIN (WMO 61) -> rain
+  assert.strictEqual(dynamicWeatherBackgroundEngine.mapWeatherToSceneId(61, 70, 6, 'day'), 'rain');
+
+  // HEAVY_RAIN (WMO 65 or rainProb >= 85) -> heavy-rain
+  assert.strictEqual(dynamicWeatherBackgroundEngine.mapWeatherToSceneId(65, 90, 4, 'day'), 'heavy-rain');
+  assert.strictEqual(dynamicWeatherBackgroundEngine.mapWeatherToSceneId(61, 88, 5, 'day'), 'heavy-rain');
+
+  // THUNDERSTORM (WMO 95) -> storm
+  assert.strictEqual(dynamicWeatherBackgroundEngine.mapWeatherToSceneId(95, 95, 3, 'day'), 'storm');
+
+  // SNOW (WMO 71) -> snow
+  assert.strictEqual(dynamicWeatherBackgroundEngine.mapWeatherToSceneId(71, 50, 4, 'day'), 'snow');
+
+  // FOG (WMO 45 or vis < 2.5km) -> fog
+  assert.strictEqual(dynamicWeatherBackgroundEngine.mapWeatherToSceneId(45, 10, 1.5, 'day'), 'fog');
+
+  // HAZE (AQI >= 150) -> haze
+  assert.strictEqual(dynamicWeatherBackgroundEngine.mapWeatherToSceneId(1, 0, 8, 'day', 165), 'haze');
+});
+
+runTest('Dynamic Weather Background Engine: Feature World Environments', () => {
+  // Agriculture World
+  const agriEnv = dynamicWeatherBackgroundEngine.computeScene({ selectedFeature: 'agriculture' });
+  assert.strictEqual(agriEnv.sceneId, 'agriculture');
+  assert.strictEqual(agriEnv.featureMode, 'agriculture');
+  assert.strictEqual(agriEnv.backgroundScene.backdropSvgType, 'farmland-fields');
+  assert.strictEqual(agriEnv.lighting.accentColor, '#10b981');
+
+  // Fitness World
+  const fitEnv = dynamicWeatherBackgroundEngine.computeScene({ selectedFeature: 'fitness' });
+  assert.strictEqual(fitEnv.sceneId, 'fitness');
+  assert.strictEqual(fitEnv.featureMode, 'fitness');
+  assert.strictEqual(fitEnv.backgroundScene.backdropSvgType, 'mountain-trail');
+
+  // Ocean World
+  const oceanEnv = dynamicWeatherBackgroundEngine.computeScene({ selectedFeature: 'ocean' });
+  assert.strictEqual(oceanEnv.sceneId, 'ocean');
+  assert.strictEqual(oceanEnv.featureMode, 'ocean');
+  assert.strictEqual(oceanEnv.backgroundScene.backdropSvgType, 'ocean-coastal');
+
+  // Rain World
+  const rainEnv = dynamicWeatherBackgroundEngine.computeScene({ selectedFeature: 'rain', rainProbability: 85 });
+  assert.strictEqual(rainEnv.sceneId, 'heavy-rain');
+  assert.strictEqual(rainEnv.rainAnimation.active, true);
+  assert.ok(rainEnv.rainAnimation.intensity >= 75);
+});
+
+runTest('Weather Scene Controller: Manages feature switching and state notification', () => {
+  let latestState = null;
+  const unsubscribe = weatherSceneController.subscribe((s) => {
+    latestState = s;
+  });
+
+  weatherSceneController.selectFeature('agriculture');
+  assert.strictEqual(latestState.selectedFeature, 'agriculture');
+  assert.strictEqual(latestState.currentScene.sceneId, 'agriculture');
+
+  weatherSceneController.selectFeature(null);
+  assert.strictEqual(latestState.selectedFeature, null);
+
+  unsubscribe();
+});
+
+runTest('Feature Worlds Dock: All 12 feature items registered with valid metadata', () => {
+  assert.strictEqual(FEATURE_WORLDS.length, 12);
+  const ids = FEATURE_WORLDS.map(f => f.id);
+  assert.ok(ids.includes('agriculture'));
+  assert.ok(ids.includes('rain'));
+  assert.ok(ids.includes('sunny'));
+  assert.ok(ids.includes('cloudy'));
+  assert.ok(ids.includes('fitness'));
+  assert.ok(ids.includes('ocean'));
+  assert.ok(ids.includes('weather'));
+  assert.ok(ids.includes('satellite'));
+  assert.ok(ids.includes('radar'));
+  assert.ok(ids.includes('travel'));
+  assert.ok(ids.includes('health'));
+  assert.ok(ids.includes('events'));
+});
+
 console.log('\n====================================================');
 console.log(`TEST RESULTS: ${passedTests} PASSED, ${failedTests} FAILED`);
 console.log('====================================================');

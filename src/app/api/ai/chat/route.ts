@@ -43,25 +43,23 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { 
       question, 
+      messages,
       weather, 
+      weatherContext,
       conversationId, 
       targetLocation, 
       stream = false,
       provider 
-    } = body as {
-      question: string;
-      weather?: WeatherPayload | null;
-      conversationId?: string;
-      targetLocation?: WeatherLocation;
-      stream?: boolean;
-      provider?: AIProviderName;
-    };
+    } = body as any;
 
-    if (!question || typeof question !== 'string' || !question.trim()) {
+    const finalQuestion = (question || (Array.isArray(messages) && messages[messages.length - 1]?.content)) as string | undefined;
+    const finalWeather = (weather || weatherContext) as WeatherPayload | undefined;
+
+    if (!finalQuestion || typeof finalQuestion !== 'string' || !finalQuestion.trim()) {
       return NextResponse.json({ error: "Question cannot be empty." }, { status: 400 });
     }
 
-    if (question.length > 500) {
+    if (finalQuestion.length > 500) {
       return NextResponse.json({ error: "Question exceeds maximum limit of 500 characters." }, { status: 400 });
     }
 
@@ -76,10 +74,10 @@ export async function POST(req: NextRequest) {
       // Launch async stream generation
       aiService.askStream(
         {
-          question: question.trim(),
+          question: finalQuestion.trim(),
           userId,
           conversationId,
-          providedWeather: weather,
+          providedWeather: finalWeather,
           targetLocationOverride: targetLocation,
           providerOverride: provider
         },
@@ -109,10 +107,10 @@ export async function POST(req: NextRequest) {
 
     // 4. Standard Non-Streaming JSON Response
     const response = await aiService.ask({
-      question: question.trim(),
+      question: finalQuestion.trim(),
       userId,
       conversationId,
-      providedWeather: weather,
+      providedWeather: finalWeather,
       targetLocationOverride: targetLocation,
       providerOverride: provider
     });
