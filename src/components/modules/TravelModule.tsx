@@ -1,7 +1,10 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
-import { Plane, Plus, Trash2, MapPin, Check, CloudRain, Sun, Luggage, Loader2 } from 'lucide-react';
+import { Plane, Plus, Trash2, MapPin, Check, CloudRain, Sun, Luggage, Loader2, Compass, ArrowRight, ExternalLink } from 'lucide-react';
 import { TravelPlan } from '@/lib/db/types';
 import { formatTemperature } from '@/lib/utils';
+import { GlassPanel } from '@/components/common/GlassPanel';
 
 interface DestinationWeather {
   temp: number;
@@ -111,25 +114,25 @@ export function TravelModule({ unit = 'celsius' }: { unit?: 'celsius' | 'fahrenh
   };
 
   return (
-    <div className="glass-panel rounded-3xl p-6 border border-white/5">
+    <GlassPanel variant="card" className="p-6 relative overflow-hidden">
       <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-violet-500/10 text-violet-400 border border-violet-500/20">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-2xl bg-violet-500/15 border border-violet-500/30 text-violet-400">
             <Plane className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-base font-semibold text-slate-100">
+            <h3 className="text-base font-bold text-[var(--foreground)] tracking-tight">
               Travel Intelligence & Packing Guidance
             </h3>
-            <p className="text-xs text-slate-400">
-              Real-time destination telemetry and meteorological packing suggestions
+            <p className="text-xs text-[var(--foreground-muted)]">
+              Real-time destination telemetry and meteorological packing recommendations
             </p>
           </div>
         </div>
 
         <button
           onClick={() => setIsAdding(!isAdding)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-slate-200 border border-slate-700 transition-colors"
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[var(--primary)]/15 hover:bg-[var(--primary)]/25 text-xs font-bold text-[var(--primary)] border border-[var(--primary)]/30 transition-all hover:scale-105 active:scale-95"
         >
           <Plus className="w-3.5 h-3.5" />
           Add Destination
@@ -138,26 +141,26 @@ export function TravelModule({ unit = 'celsius' }: { unit?: 'celsius' | 'fahrenh
 
       {/* Add Form */}
       {isAdding && (
-        <form onSubmit={handleAddDestination} className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 mb-4 animate-in fade-in duration-200">
+        <form onSubmit={handleAddDestination} className="p-4 rounded-2xl bg-white/5 border border-white/10 mb-5 animate-in fade-in duration-200">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
             <div>
-              <label className="text-[11px] font-semibold text-slate-400 block mb-1">Destination City</label>
+              <label className="text-[11px] font-bold text-slate-400 block mb-1">Destination City</label>
               <input
                 type="text"
-                placeholder="e.g. London, Paris, Tokyo, Shimla"
+                placeholder="e.g. London, Paris, Tokyo, Shimla, Coorg"
                 value={destName}
                 onChange={e => setDestName(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-violet-500"
+                className="w-full px-3 py-2 rounded-xl bg-slate-950/80 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 font-medium"
                 required
               />
             </div>
             <div>
-              <label className="text-[11px] font-semibold text-slate-400 block mb-1">Departure Date</label>
+              <label className="text-[11px] font-bold text-slate-400 block mb-1">Departure Date</label>
               <input
                 type="date"
                 value={departureDate}
                 onChange={e => setDepartureDate(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-violet-500"
+                className="w-full px-3 py-2 rounded-xl bg-slate-950/80 border border-white/10 text-xs text-white focus:outline-none focus:border-violet-500 font-medium"
                 required
               />
             </div>
@@ -166,13 +169,13 @@ export function TravelModule({ unit = 'celsius' }: { unit?: 'celsius' | 'fahrenh
             <button
               type="button"
               onClick={() => setIsAdding(false)}
-              className="px-3 py-1.5 rounded-xl text-xs text-slate-400 hover:text-white"
+              className="px-3.5 py-1.5 rounded-xl text-xs text-slate-400 hover:text-white"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-xs font-semibold text-white transition-colors"
+              className="px-4 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-xs font-bold text-white transition-colors shadow-md"
             >
               Save Destination
             </button>
@@ -184,7 +187,7 @@ export function TravelModule({ unit = 'celsius' }: { unit?: 'celsius' | 'fahrenh
       {loading ? (
         <div className="py-8 text-center text-xs text-slate-400">Loading travel destinations...</div>
       ) : plans.length === 0 ? (
-        <div className="py-6 text-center text-xs text-slate-400">
+        <div className="py-6 text-center text-xs text-slate-400 p-4 rounded-2xl bg-white/5 border border-white/5">
           No upcoming destinations saved. Add a destination above to see real weather & packing suggestions.
         </div>
       ) : (
@@ -195,76 +198,94 @@ export function TravelModule({ unit = 'celsius' }: { unit?: 'celsius' | 'fahrenh
             return (
               <div
                 key={plan.id}
-                className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-all flex flex-col justify-between"
+                className="rounded-2xl bg-white/5 border border-white/10 hover:border-violet-500/40 transition-all flex flex-col justify-between overflow-hidden group shadow-md"
               >
-                <div>
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div>
-                      <div className="flex items-center gap-1.5 text-slate-200 font-semibold text-sm">
-                        <MapPin className="w-3.5 h-3.5 text-violet-400" />
-                        <span>{plan.destination_name}</span>
-                      </div>
-                      <span className="text-[11px] text-slate-400">
-                        Departure: {plan.departure_date}
-                      </span>
+                {/* Destination Visual Banner */}
+                <div className="h-20 bg-gradient-to-r from-violet-900/40 via-purple-900/30 to-cyan-900/30 p-3.5 flex items-start justify-between relative overflow-hidden">
+                  <div className="absolute inset-0 bg-cover bg-center opacity-20 mix-blend-overlay" />
+                  
+                  <div className="relative z-10">
+                    <div className="flex items-center gap-1.5 text-white font-bold text-sm">
+                      <MapPin className="w-3.5 h-3.5 text-violet-400" />
+                      <span>{plan.destination_name}</span>
                     </div>
-
-                    <button
-                      onClick={() => handleDelete(plan.id)}
-                      className="p-1 rounded-lg text-slate-500 hover:text-rose-400 transition-colors"
-                      title="Remove destination"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <span className="text-[11px] text-violet-200/80 font-mono">
+                      Departure: {plan.departure_date}
+                    </span>
                   </div>
 
+                  <button
+                    onClick={() => handleDelete(plan.id)}
+                    className="relative z-10 p-1.5 rounded-lg bg-black/40 text-slate-400 hover:text-rose-400 transition-colors"
+                    title="Remove destination"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <div className="p-4 space-y-3">
                   {/* Real destination live weather */}
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 my-2">
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-white/5">
                     {w ? (
                       <>
                         <div className="flex items-center gap-3">
-                          <span className="text-xl font-extrabold text-white">
+                          <span className="text-2xl font-black text-white font-mono">
                             {formatTemperature(w.temp, unit)}
                           </span>
-                          <span className="text-xs text-slate-300 font-medium">
+                          <span className="text-xs text-slate-300 font-semibold">
                             {w.condition}
                           </span>
                         </div>
-                        <div className="text-xs text-cyan-400 flex items-center gap-1 font-semibold">
+                        <div className="text-xs text-cyan-400 flex items-center gap-1 font-bold">
                           <CloudRain className="w-3.5 h-3.5" />
                           <span>{w.rainProb}% rain</span>
                         </div>
                       </>
                     ) : (
                       <div className="text-[11px] text-slate-400 flex items-center gap-2">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin text-primary-400" />
-                        Fetching live destination weather...
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--primary)]" />
+                        Fetching live destination telemetry...
                       </div>
                     )}
                   </div>
-                </div>
 
-                {/* Packing Suggestions */}
-                {plan.packing_advice && plan.packing_advice.length > 0 && (
-                  <div className="pt-2 border-t border-white/5">
-                    <span className="text-[10px] font-semibold uppercase text-slate-400 tracking-wider flex items-center gap-1 mb-1.5">
-                      <Luggage className="w-3 h-3 text-amber-400" />
-                      Meteorological Packing Checklist
-                    </span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {plan.packing_advice.map((item, i) => (
-                        <span key={i} className="text-[11px] px-2 py-0.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700/60">
-                          • {item}
-                        </span>
-                      ))}
+                  {/* Packing Suggestions */}
+                  {plan.packing_advice && plan.packing_advice.length > 0 && (
+                    <div>
+                      <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider flex items-center gap-1 mb-1.5">
+                        <Luggage className="w-3 h-3 text-amber-400" />
+                        Meteorological Packing Checklist
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {plan.packing_advice.map((item, i) => (
+                          <span key={i} className="text-[11px] px-2 py-0.5 rounded-lg bg-white/5 text-slate-300 border border-white/5">
+                            • {item}
+                          </span>
+                        ))}
+                      </div>
                     </div>
+                  )}
+
+                  {/* Recommendation Action Button */}
+                  <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                    <span className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
+                      <Check className="w-3 h-3" />
+                      Climate Verified
+                    </span>
+                    <a
+                      href={`/forecast?lat=${plan.latitude}&lon=${plan.longitude}&city=${encodeURIComponent(plan.destination_name)}`}
+                      className="flex items-center gap-1 text-xs text-[var(--primary)] hover:underline font-semibold"
+                    >
+                      <span>Full Destination Forecast</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </a>
                   </div>
-                )}
+                </div>
               </div>
             );
           })}
         </div>
       )}
-    </div>
+    </GlassPanel>
   );
 }

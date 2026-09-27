@@ -614,6 +614,93 @@ runTest('Database AI Conversation Persistence: Creates, retrieves, and clears co
   assert.strictEqual(remaining.length, 0);
 });
 
+// 12. Cinematic UI/UX & Flowing Background Engine
+const { cinematicBackgroundEngine } = require('../src/lib/theme/cinematic-background-engine.ts');
+const { AVAILABLE_THEMES } = require('../src/lib/theme/types.ts');
+const { THEME_TOKENS } = require('../src/lib/theme/tokens.ts');
+
+runTest('Cinematic Background Engine: Generates all 10 theme environments with scenery backdrops', () => {
+  const all10Themes = [
+    'midnight-ai', 'arctic', 'emerald', 'violet-cosmos', 'sunset',
+    'ocean-pulse', 'monsoon', 'desert-glow', 'aurora-sky', 'storm-core'
+  ];
+
+  for (const themeId of all10Themes) {
+    const env = cinematicBackgroundEngine.buildEnvironment({ themeId });
+    assert.strictEqual(env.theme, themeId);
+    assert.ok(env.environmentName.length > 5, `Environment name for ${themeId} should be descriptive`);
+    assert.ok(env.skyGradient.includes('from-'), `Sky gradient for ${themeId} should be defined`);
+    assert.ok(env.horizonGradient.includes('from-'), `Horizon gradient for ${themeId} should be defined`);
+    assert.ok(env.atmosphericGlow.includes('radial-gradient'), `Atmospheric glow for ${themeId} should be defined`);
+    assert.ok(env.sunMoonPosition.glow, `Sun/Moon glow for ${themeId} should be configured`);
+  }
+});
+
+runTest('Cinematic Background Engine: Adapts timeOfDay and atmospheric illumination', () => {
+  const mockWeatherSunrise = {
+    current: { timestamp: '2026-09-28T06:15:00Z', weatherCode: 0, temperature: 20, rainProbability: 0, windSpeed: 10 },
+    daily: [{ sunrise: '2026-09-28T06:10:00Z', sunset: '2026-09-28T18:20:00Z' }]
+  };
+  const sunriseEnv = cinematicBackgroundEngine.buildEnvironment({
+    themeId: 'sunset',
+    weather: mockWeatherSunrise
+  });
+  assert.strictEqual(sunriseEnv.timeOfDay, 'sunrise');
+
+  const mockWeatherNight = {
+    current: { timestamp: '2026-09-28T23:30:00Z', weatherCode: 0, temperature: 18, rainProbability: 0, windSpeed: 8 },
+    daily: [{ sunrise: '2026-09-28T06:10:00Z', sunset: '2026-09-28T18:20:00Z' }]
+  };
+  const nightEnv = cinematicBackgroundEngine.buildEnvironment({
+    themeId: 'violet-cosmos',
+    weather: mockWeatherNight
+  });
+  assert.strictEqual(nightEnv.timeOfDay, 'night');
+  assert.strictEqual(nightEnv.condition, 'clear-night');
+});
+
+runTest('Cinematic Background Engine: Triggers lightning and tempest squall on thunderstorm', () => {
+  const mockWeatherStorm = {
+    current: { timestamp: '2026-09-28T14:00:00Z', weatherCode: 95, temperature: 22, rainProbability: 95, windSpeed: 45 },
+    daily: [{ sunrise: '2026-09-28T06:10:00Z', sunset: '2026-09-28T18:20:00Z' }]
+  };
+  const stormEnv = cinematicBackgroundEngine.buildEnvironment({
+    themeId: 'storm-core',
+    weather: mockWeatherStorm
+  });
+  assert.strictEqual(stormEnv.enableLightning, true);
+  assert.strictEqual(stormEnv.condition, 'storm');
+  assert.ok(stormEnv.rainIntensity >= 80);
+});
+
+runTest('Theme System: Exactly 10 premium cinematic themes registered with previews', () => {
+  assert.strictEqual(AVAILABLE_THEMES.length, 10);
+  const themeIds = AVAILABLE_THEMES.map(t => t.id);
+  assert.ok(themeIds.includes('midnight-ai'));
+  assert.ok(themeIds.includes('arctic'));
+  assert.ok(themeIds.includes('emerald'));
+  assert.ok(themeIds.includes('violet-cosmos'));
+  assert.ok(themeIds.includes('sunset'));
+  assert.ok(themeIds.includes('ocean-pulse'));
+  assert.ok(themeIds.includes('monsoon'));
+  assert.ok(themeIds.includes('desert-glow'));
+  assert.ok(themeIds.includes('aurora-sky'));
+  assert.ok(themeIds.includes('storm-core'));
+});
+
+runTest('Theme Tokens: All 10 themes contain complete Dark and Light token contracts', () => {
+  for (const theme of AVAILABLE_THEMES) {
+    const tokensDark = THEME_TOKENS[theme.id]?.dark;
+    const tokensLight = THEME_TOKENS[theme.id]?.light;
+    assert.ok(tokensDark, `Dark tokens missing for ${theme.id}`);
+    assert.ok(tokensLight, `Light tokens missing for ${theme.id}`);
+    assert.ok(tokensDark.primary, `Primary color missing in dark for ${theme.id}`);
+    assert.ok(tokensLight.primary, `Primary color missing in light for ${theme.id}`);
+    assert.ok(tokensDark.background, `Background missing in dark for ${theme.id}`);
+    assert.ok(tokensLight.background, `Background missing in light for ${theme.id}`);
+  }
+});
+
 console.log('\n====================================================');
 console.log(`TEST RESULTS: ${passedTests} PASSED, ${failedTests} FAILED`);
 console.log('====================================================');

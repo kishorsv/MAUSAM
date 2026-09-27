@@ -1,6 +1,9 @@
+'use client';
+
 import React from 'react';
-import { CloudRain, ShieldCheck, CheckCircle2, AlertCircle, Info, Zap } from 'lucide-react';
+import { CloudRain, ShieldCheck, Info } from 'lucide-react';
 import { RainNowcastResult } from '@/lib/weather/nowcast';
+import { GlassPanel } from '@/components/common/GlassPanel';
 
 interface RainNowcastCardProps {
   nowcast: RainNowcastResult;
@@ -11,26 +14,26 @@ export function RainNowcastCard({ nowcast }: RainNowcastCardProps) {
   const isRainImminent = nowcast.hasImminentRain;
 
   return (
-    <div className={`rounded-3xl p-6 border shadow-xl transition-all ${
-      isRainImminent
-        ? 'bg-cyan-950/20 border-cyan-500/30'
-        : 'glass-panel border-white/5'
-    }`}>
+    <GlassPanel 
+      variant="card"
+      glow={isRainImminent ? 'cyan' : false}
+      className="p-6 relative overflow-hidden"
+    >
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <div className="flex items-center gap-2.5">
-          <div className={`p-2 rounded-xl ${isRainImminent ? 'bg-cyan-500/20 text-cyan-400' : 'bg-primary-500/10 text-primary-400'}`}>
+        <div className="flex items-center gap-3">
+          <div className={`p-2.5 rounded-2xl ${isRainImminent ? 'bg-cyan-500/20 text-cyan-400' : 'bg-[var(--primary)]/15 text-[var(--primary)]'}`}>
             <CloudRain className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-base font-bold text-white">
+              <h3 className="text-base font-extrabold text-[var(--foreground)] tracking-tight">
                 Rain Nowcast & Confidence
               </h3>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 font-mono">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-mono">
                 Near-Term Radar
               </span>
             </div>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-[var(--foreground-muted)]">
               Short-term precipitation modeling with source agreement telemetry
             </p>
           </div>
@@ -40,8 +43,8 @@ export function RainNowcastCard({ nowcast }: RainNowcastCardProps) {
         <div className="flex items-center gap-2">
           <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
             isHighConfidence
-              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-              : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+              ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+              : 'bg-amber-500/15 text-amber-400 border-amber-500/30'
           }`}>
             <ShieldCheck className="w-3.5 h-3.5" />
             <span>Confidence: {nowcast.confidence}</span>
@@ -49,22 +52,22 @@ export function RainNowcastCard({ nowcast }: RainNowcastCardProps) {
         </div>
       </div>
 
-      <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3 mb-3">
+      <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3 mb-3">
         <div className="flex items-center justify-between">
           <span className="text-xs font-semibold text-slate-300">Expected Precipitation:</span>
-          <span className={`text-xs font-bold ${isRainImminent ? 'text-cyan-400' : 'text-slate-400'}`}>
+          <span className={`text-xs font-bold font-mono ${isRainImminent ? 'text-cyan-400' : 'text-slate-400'}`}>
             {nowcast.intensity}
           </span>
         </div>
 
         <div className="flex items-center justify-between">
           <span className="text-xs font-semibold text-slate-300">Forecast Interval Window:</span>
-          <span className="text-xs font-bold text-white">
+          <span className="text-xs font-bold text-white font-mono">
             {nowcast.expectedTimeWindow}
           </span>
         </div>
 
-        <p className="text-xs text-slate-300 leading-relaxed border-t border-slate-800 pt-2.5">
+        <p className="text-xs text-slate-300 leading-relaxed border-t border-white/10 pt-2.5">
           {nowcast.summary}
         </p>
       </div>
@@ -72,15 +75,15 @@ export function RainNowcastCard({ nowcast }: RainNowcastCardProps) {
       {/* Source Agreement & Methodology Explanation */}
       <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400 px-1">
         <div className="flex items-center gap-1.5">
-          <Info className="w-3.5 h-3.5 text-primary-400 shrink-0" />
+          <Info className="w-3.5 h-3.5 text-[var(--primary)] shrink-0" />
           <span>{nowcast.confidenceReason}</span>
         </div>
-        <div className="flex items-center gap-2 font-mono text-[10px] text-slate-500">
+        <div className="flex items-center gap-2 font-mono text-[10px] text-slate-400">
           <span>{nowcast.sourceAgreement}</span>
           <span>•</span>
-          <span>Telemetry Freshness: {nowcast.dataFreshnessMinutes}m</span>
+          <span>Freshness: {nowcast.dataFreshnessMinutes}m</span>
         </div>
       </div>
-    </div>
+    </GlassPanel>
   );
 }

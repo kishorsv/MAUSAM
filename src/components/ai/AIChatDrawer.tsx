@@ -13,6 +13,7 @@ interface AIChatDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   weather: WeatherPayload;
+  initialPrompt?: string;
 }
 
 interface Message {
@@ -34,7 +35,7 @@ interface ConversationItem {
   updated_at: string;
 }
 
-export function AIChatDrawer({ isOpen, onClose, weather }: AIChatDrawerProps) {
+export function AIChatDrawer({ isOpen, onClose, weather, initialPrompt }: AIChatDrawerProps) {
   const { theme, tokens, resolvedMode } = useTheme();
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string>('conv-default');
@@ -293,6 +294,14 @@ export function AIChatDrawer({ isOpen, onClose, weather }: AIChatDrawerProps) {
       setStreamingText('');
     }
   };
+
+  // Auto-send initial prompt if provided when drawer opens
+  useEffect(() => {
+    if (isOpen && initialPrompt) {
+      handleSend(initialPrompt);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, initialPrompt]);
 
   if (!isOpen) return null;
 

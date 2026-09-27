@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme/ThemeContext';
 import { ThemeSwitcherModal } from '@/components/theme/ThemeSwitcherModal';
+import { PersistentLivingBackground } from '@/components/theme/PersistentLivingBackground';
 
 export const metadata: Metadata = {
   title: 'MAUSAM — Smart Personalized Weather Intelligence',
@@ -25,6 +26,7 @@ export default function RootLayout({
     <html lang="en" className="dark" data-theme="midnight-ai" data-mode="dark" suppressHydrationWarning>
       <body className="antialiased min-h-screen selection:bg-primary-500/30 selection:text-primary-200">
         <ThemeProvider>
+          <PersistentLivingBackground />
           {children}
           <ThemeSwitcherModal />
         </ThemeProvider>

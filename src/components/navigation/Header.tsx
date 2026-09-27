@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { 
   CloudSun, Search, Bell, User, MapPin, Globe, Sparkles, 
-  Radio, Layers, Route, Users, Cpu, MoreHorizontal, Palette 
+  Radio, Layers, Route, Users, Cpu, MoreHorizontal, Palette,
+  Moon, Sun, Monitor
 } from 'lucide-react';
 import { WeatherLocation } from '@/lib/weather/types';
 import { ModeBadge } from '../common/ModeBadge';
@@ -35,28 +36,39 @@ export function Header({
   userName,
   isOffline = false
 }: HeaderProps) {
-  const { theme, openThemeModal, tokens } = useTheme();
+  const { theme, openThemeModal, tokens, mode, setMode, resolvedMode } = useTheme();
   const activeTheme = AVAILABLE_THEMES.find(t => t.id === theme) || AVAILABLE_THEMES[0];
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [navMenuOpen, setNavMenuOpen] = useState(false);
   const t = translations[language] || translations.en;
 
-  return (
-    <header 
-      className="sticky top-0 z-40 w-full glass-panel border-b transition-colors duration-300 backdrop-blur-xl"
-      style={{
-        background: 'var(--surface-glass)',
-        borderColor: 'var(--border)'
-      }}
-    >
-      {/* Offline Status Bar if network disconnected */}
-      {isOffline && (
-        <div className="bg-amber-500 text-slate-950 text-xs font-bold py-1 px-4 text-center tracking-wide">
-          OFFLINE MODE — Displaying last successfully retrieved weather data.
-        </div>
-      )}
+  const toggleThemeMode = () => {
+    if (mode === 'dark') setMode('light');
+    else if (mode === 'light') setMode('auto');
+    else setMode('dark');
+  };
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+  return (
+    <header className="sticky top-2 sm:top-3 z-40 w-full px-3 sm:px-6 max-w-7xl mx-auto transition-all duration-300">
+      <div 
+        className="w-full glass-panel rounded-2xl sm:rounded-3xl border shadow-xl transition-all duration-300 backdrop-blur-2xl relative overflow-hidden"
+        style={{
+          background: 'var(--surface-glass)',
+          borderColor: 'var(--border)',
+          boxShadow: 'var(--shadow)'
+        }}
+      >
+        {/* Specular Top Inner Highlight */}
+        <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
+
+        {/* Offline Status Bar if network disconnected */}
+        {isOffline && (
+          <div className="bg-amber-500 text-slate-950 text-xs font-bold py-1 px-4 text-center tracking-wide">
+            OFFLINE MODE — Displaying last successfully retrieved weather data.
+          </div>
+        )}
+
+        <div className="px-3 sm:px-5 h-16 flex items-center justify-between gap-3">
         {/* Logo and Tagline */}
         <div className="flex items-center gap-3">
           <Link href="/" className="flex items-center gap-2.5 group">
@@ -255,6 +267,27 @@ export function Header({
             />
           </button>
 
+          {/* Direct Dark / Light / Auto Quick Mode Switcher */}
+          <button
+            onClick={toggleThemeMode}
+            className="flex items-center gap-1.5 p-2 rounded-xl border text-xs font-semibold shadow-sm transition-all hover:scale-105 active:scale-95"
+            style={{
+              background: 'var(--surface)',
+              borderColor: 'var(--border-subtle)',
+              color: 'var(--foreground)'
+            }}
+            title={`Mode: ${mode.toUpperCase()} (Click to toggle)`}
+            aria-label={`Current mode: ${mode}. Click to toggle.`}
+          >
+            {mode === 'dark' ? (
+              <Moon className="w-4 h-4 text-indigo-400" />
+            ) : mode === 'light' ? (
+              <Sun className="w-4 h-4 text-amber-400" />
+            ) : (
+              <Monitor className="w-4 h-4 text-cyan-400" />
+            )}
+          </button>
+
           {/* Language Switcher Dropdown */}
           <div className="relative">
             <button
@@ -357,6 +390,7 @@ export function Header({
             </span>
           </Link>
         </div>
+      </div>
       </div>
     </header>
   );

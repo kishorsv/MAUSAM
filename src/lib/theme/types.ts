@@ -4,7 +4,12 @@ export type ThemeId =
   | 'emerald' 
   | 'violet-cosmos' 
   | 'sunset'
-  // Legacy aliases for backward compatibility with tests & earlier builds
+  | 'ocean-pulse'
+  | 'monsoon'
+  | 'desert-glow'
+  | 'aurora-sky'
+  | 'storm-core'
+  // Legacy aliases for backward compatibility with earlier builds and tests
   | 'aurora' 
   | 'living-weather' 
   | 'earth' 
@@ -38,7 +43,9 @@ export type ParticleType =
   | 'satellite-grid'
   | 'leaves'
   | 'embers'
-  | 'cosmic';
+  | 'cosmic'
+  | 'water'
+  | 'dust';
 
 export interface ThemeTokens {
   background: string;
@@ -149,6 +156,61 @@ export const AVAILABLE_THEMES: ThemeConfig[] = [
     accentColor: '#ea580c',
     primaryGlow: 'rgba(234, 88, 12, 0.4)',
     previewColors: ['#180a08', '#32100b', '#ea580c', '#fbbf24']
+  },
+  {
+    id: 'ocean-pulse',
+    name: 'Ocean Pulse',
+    tagline: 'Deep Marine & Coastal Horizon',
+    icon: '🌊',
+    badge: 'Coastal Marine',
+    description: 'Deep abyss navy, luminous turquoise surf highlights, slow rhythmic tidal swell, and oceanic coastal clarity.',
+    accentColor: '#06b6d4',
+    primaryGlow: 'rgba(6, 182, 212, 0.4)',
+    previewColors: ['#031322', '#05223c', '#06b6d4', '#22d3ee']
+  },
+  {
+    id: 'monsoon',
+    name: 'Monsoon',
+    tagline: 'Rain-Drenched Tempest Atmospheric',
+    icon: '🌧️',
+    badge: 'Precipitation',
+    description: 'Wet slate and deep storm navy, rain streak refractions, rolling precipitation fronts, and cool saturated droplets.',
+    accentColor: '#0284c7',
+    primaryGlow: 'rgba(2, 132, 199, 0.4)',
+    previewColors: ['#05101a', '#0b1c2e', '#0284c7', '#38bdf8']
+  },
+  {
+    id: 'desert-glow',
+    name: 'Desert Glow',
+    tagline: 'Solar Dunes & Amber Heat Haze',
+    icon: '🏜️',
+    badge: 'Solar Dunes',
+    description: 'Rich terra-cotta, radiant amber sun rays, golden atmospheric dust motes, and expansive desert horizon warmth.',
+    accentColor: '#d97706',
+    primaryGlow: 'rgba(217, 119, 6, 0.4)',
+    previewColors: ['#1c0f05', '#331c0a', '#d97706', '#fbbf24']
+  },
+  {
+    id: 'aurora-sky',
+    name: 'Aurora Sky',
+    tagline: 'Geomagnetic Polar Light Curtains',
+    icon: '🌌',
+    badge: 'Polar Aurora',
+    description: 'Electric cyan and emerald magnetic wave curtains flowing across high-latitude twilight skies with deep celestial violet.',
+    accentColor: '#22d3ee',
+    primaryGlow: 'rgba(34, 211, 238, 0.45)',
+    previewColors: ['#040a18', '#081735', '#22d3ee', '#10b981']
+  },
+  {
+    id: 'storm-core',
+    name: 'Storm Core',
+    tagline: 'Electric Tempest & Thunder Front',
+    icon: '⚡',
+    badge: 'Severe Tempest',
+    description: 'Pitch-black thunderheads, high-voltage electric blue discharges, violent barometric drop, and rapid pulse lighting.',
+    accentColor: '#6366f1',
+    primaryGlow: 'rgba(99, 102, 241, 0.45)',
+    previewColors: ['#050814', '#0d132a', '#6366f1', '#38bdf8']
   }
 ];
 

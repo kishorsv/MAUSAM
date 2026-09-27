@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { WeatherVisualState } from '@/lib/theme/types';
 import { useTheme } from './ThemeContext';
+import { cinematicBackgroundEngine } from '@/lib/theme/cinematic-background-engine';
 
 interface LivingWeatherBackgroundProps {
   visualState: WeatherVisualState;
@@ -14,7 +15,7 @@ export function LivingWeatherBackground({ visualState }: LivingWeatherBackground
   const [systemReducedMotion, setSystemReducedMotion] = useState(false);
   const { theme, resolvedMode, motion, weatherEffects } = useTheme();
 
-  // Check user system reduced motion preference
+  // Check system reduced motion
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -36,35 +37,43 @@ export function LivingWeatherBackground({ visualState }: LivingWeatherBackground
     return true;
   }, [weatherEffects]);
 
-  // Lightning periodic flash generator
+  // Compute cinematic environment parameters
+  const cinematicConfig = useMemo(() => {
+    return cinematicBackgroundEngine.buildEnvironment({
+      themeId: theme,
+      forcedTimeOfDay: visualState.timeOfDay
+    });
+  }, [theme, visualState.timeOfDay]);
+
+  // Lightning periodic generator for storm conditions
   useEffect(() => {
-    if (!visualState.enableLightning || isMotionSuppressed || !areWeatherEffectsEnabled) return;
+    const shouldFlash = visualState.enableLightning || cinematicConfig.enableLightning;
+    if (!shouldFlash || isMotionSuppressed || !areWeatherEffectsEnabled) return;
 
     let timeoutId: NodeJS.Timeout;
     const triggerLightning = () => {
       setLightningActive(true);
       setTimeout(() => {
         setLightningActive(false);
-        // Double flash effect
+        // Double flash micro-strike
         setTimeout(() => {
           setLightningActive(true);
           setTimeout(() => setLightningActive(false), 90);
         }, 120);
       }, 150);
 
-      // Schedule next random flash between 8s and 20s
-      const nextDelay = Math.random() * 12000 + 8000;
+      const nextDelay = Math.random() * 12000 + 7000;
       timeoutId = setTimeout(triggerLightning, nextDelay);
     };
 
-    timeoutId = setTimeout(triggerLightning, 6000);
+    timeoutId = setTimeout(triggerLightning, 5000);
     return () => clearTimeout(timeoutId);
-  }, [visualState.enableLightning, isMotionSuppressed, areWeatherEffectsEnabled]);
+  }, [visualState.enableLightning, cinematicConfig.enableLightning, isMotionSuppressed, areWeatherEffectsEnabled]);
 
-  // Dynamic Particle Engine on HTML5 Canvas
+  // Dynamic Particle Canvas Engine
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || isMotionSuppressed || !areWeatherEffectsEnabled || visualState.particleType === 'none') return;
+    if (!canvas || isMotionSuppressed || !areWeatherEffectsEnabled) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -95,14 +104,22 @@ export function LivingWeatherBackground({ visualState }: LivingWeatherBackground
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     const isMobile = window.innerWidth < 640;
-    const countMultiplier = isMobile ? 0.5 : 1.0;
-    const baseCount = visualState.particleType === 'rain' ? 80 :
-                      visualState.particleType === 'snow' ? 50 :
-                      visualState.particleType === 'stars' || visualState.particleType === 'cosmic' ? 70 :
-                      visualState.particleType === 'leaves' ? 30 :
-                      visualState.particleType === 'embers' ? 35 :
-                      visualState.particleType === 'sunlight' ? 35 :
-                      visualState.particleType === 'aurora' ? 25 : 30;
+    const countMultiplier = isMobile ? 0.45 : 1.0;
+    
+    // Choose particle type based on weather and theme
+    const activeParticleType = visualState.particleType !== 'none' 
+      ? visualState.particleType 
+      : cinematicConfig.particleType;
+
+    const baseCount = activeParticleType === 'rain' ? 85 :
+                      activeParticleType === 'snow' ? 50 :
+                      activeParticleType === 'stars' || activeParticleType === 'cosmic' ? 65 :
+                      activeParticleType === 'leaves' ? 30 :
+                      activeParticleType === 'embers' ? 35 :
+                      activeParticleType === 'dust' ? 40 :
+                      activeParticleType === 'sunlight' ? 35 :
+                      activeParticleType === 'aurora' ? 25 : 30;
+
     const particleCount = Math.max(12, Math.round(baseCount * countMultiplier));
 
     interface Particle {
@@ -116,7 +133,6 @@ export function LivingWeatherBackground({ visualState }: LivingWeatherBackground
       length?: number;
       rotation?: number;
       rotationSpeed?: number;
-      color?: string;
     }
 
     const particles: Particle[] = [];
@@ -125,21 +141,23 @@ export function LivingWeatherBackground({ visualState }: LivingWeatherBackground
         x: Math.random() * width,
         y: Math.random() * height,
         vx: (Math.random() - 0.5) * 0.4,
-        vy: visualState.particleType === 'rain' ? Math.random() * 12 + 10 :
-            visualState.particleType === 'snow' ? Math.random() * 1.5 + 0.8 :
-            visualState.particleType === 'leaves' ? Math.random() * 1.2 + 0.6 :
-            visualState.particleType === 'embers' ? -Math.random() * 0.8 - 0.3 :
-            visualState.particleType === 'sunlight' ? -Math.random() * 0.6 - 0.2 :
+        vy: activeParticleType === 'rain' ? Math.random() * 12 + 10 :
+            activeParticleType === 'snow' ? Math.random() * 1.5 + 0.8 :
+            activeParticleType === 'leaves' ? Math.random() * 1.2 + 0.6 :
+            activeParticleType === 'embers' ? -Math.random() * 0.9 - 0.3 :
+            activeParticleType === 'dust' ? (Math.random() - 0.5) * 0.4 :
+            activeParticleType === 'sunlight' ? -Math.random() * 0.6 - 0.2 :
             (Math.random() - 0.5) * 0.25,
-        size: visualState.particleType === 'rain' ? 1.5 :
-              visualState.particleType === 'snow' ? Math.random() * 3 + 1.5 :
-              visualState.particleType === 'leaves' ? Math.random() * 4 + 2.5 :
-              visualState.particleType === 'embers' ? Math.random() * 2.5 + 1 :
-              visualState.particleType === 'stars' || visualState.particleType === 'cosmic' ? Math.random() * 2 + 0.8 :
-              visualState.particleType === 'sunlight' ? Math.random() * 3 + 1 : 2,
-        alpha: Math.random() * 0.6 + 0.2,
+        size: activeParticleType === 'rain' ? 1.5 :
+              activeParticleType === 'snow' ? Math.random() * 3 + 1.5 :
+              activeParticleType === 'leaves' ? Math.random() * 4 + 2.5 :
+              activeParticleType === 'embers' ? Math.random() * 2.5 + 1 :
+              activeParticleType === 'dust' ? Math.random() * 2.2 + 0.8 :
+              activeParticleType === 'stars' || activeParticleType === 'cosmic' ? Math.random() * 2 + 0.8 :
+              activeParticleType === 'sunlight' ? Math.random() * 3 + 1 : 2,
+        alpha: Math.random() * 0.6 + 0.25,
         pulseSpeed: Math.random() * 0.03 + 0.01,
-        length: Math.random() * 15 + 10,
+        length: Math.random() * 16 + 10,
         rotation: Math.random() * Math.PI * 2,
         rotationSpeed: (Math.random() - 0.5) * 0.04
       });
@@ -149,9 +167,9 @@ export function LivingWeatherBackground({ visualState }: LivingWeatherBackground
       ctx.clearRect(0, 0, width, height);
 
       // 1. RAIN
-      if (visualState.particleType === 'rain') {
+      if (activeParticleType === 'rain') {
         ctx.strokeStyle = resolvedMode === 'dark' ? 'rgba(56, 189, 248, 0.45)' : 'rgba(2, 132, 199, 0.55)';
-        ctx.lineWidth = 1.2;
+        ctx.lineWidth = 1.3;
         ctx.beginPath();
         for (let p of particles) {
           ctx.moveTo(p.x, p.y);
@@ -167,8 +185,8 @@ export function LivingWeatherBackground({ visualState }: LivingWeatherBackground
         }
         ctx.stroke();
       } 
-      // 2. SNOW / ARCTIC
-      else if (visualState.particleType === 'snow') {
+      // 2. SNOW
+      else if (activeParticleType === 'snow') {
         ctx.fillStyle = resolvedMode === 'dark' ? 'rgba(224, 242, 254, 0.75)' : 'rgba(14, 165, 233, 0.45)';
         for (let p of particles) {
           ctx.beginPath();
@@ -184,8 +202,8 @@ export function LivingWeatherBackground({ visualState }: LivingWeatherBackground
           }
         }
       } 
-      // 3. LEAVES / EMERALD BIOSPHERE
-      else if (visualState.particleType === 'leaves') {
+      // 3. LEAVES / BIOSPHERE
+      else if (activeParticleType === 'leaves') {
         for (let p of particles) {
           ctx.save();
           ctx.translate(p.x, p.y);
@@ -197,29 +215,26 @@ export function LivingWeatherBackground({ visualState }: LivingWeatherBackground
             ? `rgba(52, 211, 153, ${p.alpha * 0.6})` 
             : `rgba(5, 150, 105, ${p.alpha * 0.5})`;
           
-          // Draw leaf shape
           ctx.beginPath();
-          ctx.ellipse(0, 0, p.size, p.size * 2, 0, 0, Math.PI * 2);
+          ctx.ellipse(0, 0, p.size * 2, p.size, 0, 0, Math.PI * 2);
           ctx.fill();
           ctx.restore();
 
           p.y += p.vy;
-          p.x += Math.sin(p.y * 0.015) * 0.8;
+          p.x += Math.sin(p.y * 0.03) * 0.8;
 
-          if (p.y > height + 20) {
-            p.y = -20;
+          if (p.y > height) {
+            p.y = -15;
             p.x = Math.random() * width;
           }
         }
-      } 
+      }
       // 4. EMBERS / SUNSET
-      else if (visualState.particleType === 'embers') {
+      else if (activeParticleType === 'embers') {
         for (let p of particles) {
-          p.alpha += (p.pulseSpeed || 0.02);
-          const currentAlpha = (Math.sin(p.alpha) + 1) * 0.35 + 0.2;
-          ctx.fillStyle = resolvedMode === 'dark' 
-            ? `rgba(249, 115, 22, ${currentAlpha * 0.65})` 
-            : `rgba(234, 88, 12, ${currentAlpha * 0.5})`;
+          ctx.fillStyle = `rgba(251, 146, 60, ${p.alpha * 0.7})`;
+          ctx.shadowColor = 'rgba(234, 88, 12, 0.6)';
+          ctx.shadowBlur = 8;
           ctx.beginPath();
           ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
           ctx.fill();
@@ -232,84 +247,53 @@ export function LivingWeatherBackground({ visualState }: LivingWeatherBackground
             p.x = Math.random() * width;
           }
         }
-      } 
-      // 5. STARS & VIOLET COSMOS
-      else if (visualState.particleType === 'stars' || visualState.particleType === 'cosmic') {
+        ctx.shadowBlur = 0;
+      }
+      // 5. STARS / COSMIC
+      else if (activeParticleType === 'stars' || activeParticleType === 'cosmic') {
         for (let p of particles) {
           p.alpha += (p.pulseSpeed || 0.02);
-          const currentAlpha = (Math.sin(p.alpha) + 1) * 0.35 + 0.15;
-          ctx.fillStyle = theme === 'violet-cosmos'
-            ? `rgba(217, 70, 239, ${currentAlpha * 0.7})`
-            : `rgba(224, 231, 255, ${currentAlpha})`;
+          const currentAlpha = Math.abs(Math.sin(p.alpha)) * 0.7 + 0.2;
+          
+          ctx.fillStyle = activeParticleType === 'cosmic'
+            ? `rgba(192, 132, 252, ${currentAlpha})`
+            : `rgba(248, 250, 252, ${currentAlpha})`;
+          
           ctx.beginPath();
           ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
           ctx.fill();
         }
-
-        // Draw delicate orbital telemetry sweep lines for Violet Cosmos
-        if (theme === 'violet-cosmos') {
-          const time = Date.now() * 0.0003;
-          const centerX = width * 0.85;
-          const centerY = height * 0.18;
-
-          ctx.strokeStyle = 'rgba(139, 92, 246, 0.10)';
-          ctx.lineWidth = 1;
-          for (let r = 70; r <= 280; r += 70) {
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
-            ctx.stroke();
-          }
-
-          // Sweeping radar beam
-          ctx.strokeStyle = 'rgba(217, 70, 239, 0.15)';
-          ctx.beginPath();
-          ctx.moveTo(centerX, centerY);
-          ctx.lineTo(
-            centerX + Math.cos(time) * 280,
-            centerY + Math.sin(time) * 280
-          );
-          ctx.stroke();
-        }
-      } 
-      // 6. SUNLIGHT
-      else if (visualState.particleType === 'sunlight') {
+      }
+      // 6. DUST / DESERT
+      else if (activeParticleType === 'dust') {
+        ctx.fillStyle = 'rgba(251, 191, 36, 0.4)';
         for (let p of particles) {
-          ctx.fillStyle = `rgba(251, 191, 36, ${p.alpha * 0.4})`;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+
+          p.x += Math.cos(p.y * 0.01) * 0.4 + 0.3;
+          p.y += (Math.random() - 0.5) * 0.2;
+
+          if (p.x > width) p.x = -10;
+        }
+      }
+      // 7. SUNLIGHT MOTES
+      else if (activeParticleType === 'sunlight') {
+        for (let p of particles) {
+          p.alpha += (p.pulseSpeed || 0.02);
+          const currentAlpha = Math.abs(Math.sin(p.alpha)) * 0.5 + 0.15;
+          ctx.fillStyle = `rgba(253, 224, 71, ${currentAlpha})`;
           ctx.beginPath();
           ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
           ctx.fill();
 
           p.y += p.vy;
-          p.x += Math.sin(p.y * 0.01) * 0.3;
-
           if (p.y < -10) {
             p.y = height + 10;
             p.x = Math.random() * width;
           }
         }
-      } 
-      // 7. SATELLITE GRID (EARTH LEGACY)
-      else if (visualState.particleType === 'satellite-grid') {
-        const time = Date.now() * 0.0005;
-        const centerX = width * 0.8;
-        const centerY = height * 0.2;
-
-        ctx.strokeStyle = 'rgba(16, 185, 129, 0.08)';
-        ctx.lineWidth = 1;
-        for (let r = 80; r <= 320; r += 80) {
-          ctx.beginPath();
-          ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-
-        ctx.strokeStyle = 'rgba(16, 185, 129, 0.15)';
-        ctx.beginPath();
-        ctx.moveTo(centerX, centerY);
-        ctx.lineTo(
-          centerX + Math.cos(time) * 320,
-          centerY + Math.sin(time) * 320
-        );
-        ctx.stroke();
       }
 
       animationFrameId = requestAnimationFrame(render);
@@ -322,66 +306,153 @@ export function LivingWeatherBackground({ visualState }: LivingWeatherBackground
       window.removeEventListener('resize', handleResize);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [visualState.particleType, isMotionSuppressed, areWeatherEffectsEnabled, resolvedMode, theme]);
+  }, [visualState.particleType, cinematicConfig.particleType, isMotionSuppressed, areWeatherEffectsEnabled, resolvedMode, theme]);
 
   return (
-    <div className="fixed inset-0 -z-50 pointer-events-none overflow-hidden transition-colors duration-700">
-      {/* 1. Underlying Atmospheric Background Gradient */}
-      <div className={`absolute inset-0 ${visualState.bgGradient} transition-all duration-700`} />
+    <div className="fixed inset-0 -z-50 pointer-events-none overflow-hidden select-none transition-colors duration-700">
+      {/* ============================================================== */}
+      {/* LAYER 1: CINEMATIC HORIZON & MOUNTAIN SCENERY                   */}
+      {/* ============================================================== */}
+      
+      {/* Sky Base Gradient */}
+      <div className={`absolute inset-0 bg-gradient-to-b ${cinematicConfig.skyGradient} transition-all duration-700`} />
 
-      {/* 2. Radial Atmospheric Illumination Layer */}
-      <div
-        className="absolute inset-0 transition-all duration-700 opacity-90"
-        style={{ background: visualState.atmosphericGlow }}
+      {/* Atmospheric Horizon Light */}
+      <div 
+        className="absolute inset-0 transition-all duration-700 opacity-90 pointer-events-none"
+        style={{ background: cinematicConfig.atmosphericGlow }}
       />
 
-      {/* 3. Midnight AI Aurora Waves */}
-      {(theme === 'midnight-ai' || visualState.themeId === 'aurora') && !isMotionSuppressed && areWeatherEffectsEnabled && (
-        <div className="absolute inset-0 overflow-hidden opacity-35">
-          <div className="absolute -top-[30%] -left-[20%] w-[140%] h-[80%] rounded-full bg-gradient-to-r from-cyan-500/20 via-primary-500/25 to-violet-600/20 blur-3xl animate-pulse-slow" />
-          <div className="absolute -top-[10%] -right-[10%] w-[120%] h-[70%] rounded-full bg-gradient-to-l from-violet-500/20 via-cyan-400/25 to-emerald-400/15 blur-3xl animate-float" />
+      {/* Celestial Light: Sun / Moon with dynamic atmospheric halo */}
+      <div 
+        className="absolute w-48 h-48 sm:w-64 sm:h-64 rounded-full blur-2xl transition-all duration-1000 pointer-events-none opacity-40 animate-pulse-slow"
+        style={{
+          top: cinematicConfig.sunMoonPosition.top,
+          right: cinematicConfig.sunMoonPosition.right,
+          background: cinematicConfig.sunMoonPosition.glow
+        }}
+      />
+
+      {/* Mountain Silhouettes: Layered depth parallax */}
+      <div className="absolute inset-x-0 bottom-0 h-[38vh] sm:h-[46vh] pointer-events-none overflow-hidden opacity-30">
+        <svg 
+          viewBox="0 0 1440 480" 
+          fill="none" 
+          preserveAspectRatio="none" 
+          className="w-full h-full text-[var(--background-secondary)] transition-colors duration-700"
+        >
+          {/* Back distant peaks */}
+          <path 
+            d="M0 320 L180 240 L380 340 L580 210 L760 300 L980 180 L1180 290 L1360 220 L1440 270 L1440 480 L0 480 Z" 
+            fill="currentColor" 
+            opacity="0.35"
+          />
+          {/* Mid mountain ridge */}
+          <path 
+            d="M0 370 L140 310 L320 400 L540 280 L720 380 L920 270 L1120 370 L1320 300 L1440 350 L1440 480 L0 480 Z" 
+            fill="currentColor" 
+            opacity="0.6"
+          />
+          {/* Foreground rolling foothills */}
+          <path 
+            d="M0 420 Q240 360 480 430 T960 410 T1440 430 L1440 480 L0 480 Z" 
+            fill="currentColor" 
+            opacity="0.9"
+          />
+        </svg>
+      </div>
+
+      {/* ============================================================== */}
+      {/* LAYER 2: VOLUMETRIC DRIFTING CLOUDS                            */}
+      {/* ============================================================== */}
+      {!isMotionSuppressed && areWeatherEffectsEnabled && (
+        <div 
+          className="absolute inset-0 pointer-events-none overflow-hidden transition-opacity duration-700"
+          style={{ opacity: cinematicConfig.cloudOpacity }}
+        >
+          <div className="absolute top-[8%] -left-[20%] w-[140%] h-[35%] rounded-[100%] bg-gradient-to-r from-transparent via-slate-400/25 to-transparent blur-3xl animate-cloud-drift" />
+          <div className="absolute top-[22%] -right-[15%] w-[130%] h-[30%] rounded-[100%] bg-gradient-to-l from-transparent via-slate-500/20 to-transparent blur-3xl animate-cloud-drift" style={{ animationDelay: '-30s' }} />
         </div>
       )}
 
-      {/* 4. Violet Cosmos Cosmic Waves */}
+      {/* ============================================================== */}
+      {/* LAYER 3: THEME COLOR GLOW WAVES (Aurora, Cosmic, Sunset, Ocean)*/}
+      {/* ============================================================== */}
+      
+      {/* Aurora Sky & Midnight AI ribbon waves */}
+      {(theme === 'aurora-sky' || theme === 'aurora' || theme === 'midnight-ai') && !isMotionSuppressed && areWeatherEffectsEnabled && (
+        <div className="absolute inset-0 overflow-hidden opacity-40">
+          <div className="absolute -top-[25%] -left-[15%] w-[130%] h-[75%] rounded-full bg-gradient-to-r from-cyan-500/25 via-emerald-400/20 to-violet-600/25 blur-3xl animate-aurora-flow" />
+          <div className="absolute -top-[10%] -right-[10%] w-[120%] h-[65%] rounded-full bg-gradient-to-l from-violet-500/25 via-cyan-400/20 to-teal-400/15 blur-3xl animate-float" />
+        </div>
+      )}
+
+      {/* Violet Cosmos nebula dust */}
       {theme === 'violet-cosmos' && !isMotionSuppressed && areWeatherEffectsEnabled && (
-        <div className="absolute inset-0 overflow-hidden opacity-30">
-          <div className="absolute -top-[25%] -right-[15%] w-[130%] h-[75%] rounded-full bg-gradient-to-r from-purple-600/20 via-fuchsia-500/20 to-indigo-600/20 blur-3xl animate-pulse-slow" />
-          <div className="absolute -bottom-[20%] -left-[10%] w-[120%] h-[60%] rounded-full bg-gradient-to-tr from-violet-700/25 via-pink-500/15 to-transparent blur-3xl animate-float" />
-        </div>
-      )}
-
-      {/* 5. Sunset Horizon Glow Waves */}
-      {theme === 'sunset' && !isMotionSuppressed && areWeatherEffectsEnabled && (
         <div className="absolute inset-0 overflow-hidden opacity-35">
-          <div className="absolute top-[10%] -left-[10%] w-[120%] h-[60%] rounded-full bg-gradient-to-r from-orange-600/25 via-amber-500/20 to-rose-600/20 blur-3xl animate-float" />
+          <div className="absolute -top-[20%] -right-[10%] w-[120%] h-[70%] rounded-full bg-gradient-to-r from-purple-600/25 via-fuchsia-500/20 to-indigo-600/25 blur-3xl animate-pulse-slow" />
+          <div className="absolute -bottom-[15%] -left-[10%] w-[120%] h-[60%] rounded-full bg-gradient-to-tr from-violet-700/30 via-pink-500/20 to-transparent blur-3xl animate-float" />
         </div>
       )}
 
-      {/* 6. Fog/Mist Horizontal Drift */}
+      {/* Sunset warm horizon haze */}
+      {theme === 'sunset' && !isMotionSuppressed && areWeatherEffectsEnabled && (
+        <div className="absolute inset-0 overflow-hidden opacity-40">
+          <div className="absolute top-[15%] -left-[10%] w-[120%] h-[55%] rounded-full bg-gradient-to-r from-orange-600/30 via-amber-500/25 to-rose-600/25 blur-3xl animate-float" />
+        </div>
+      )}
+
+      {/* Ocean Pulse coastal marine glow */}
+      {theme === 'ocean-pulse' && !isMotionSuppressed && areWeatherEffectsEnabled && (
+        <div className="absolute inset-0 overflow-hidden opacity-35">
+          <div className="absolute bottom-[5%] -left-[10%] w-[120%] h-[50%] rounded-full bg-gradient-to-r from-cyan-600/25 via-teal-500/25 to-sky-700/20 blur-3xl animate-float" />
+        </div>
+      )}
+
+      {/* Desert Glow solar haze */}
+      {theme === 'desert-glow' && !isMotionSuppressed && areWeatherEffectsEnabled && (
+        <div className="absolute inset-0 overflow-hidden opacity-35">
+          <div className="absolute top-[20%] -right-[10%] w-[120%] h-[60%] rounded-full bg-gradient-to-r from-amber-600/30 via-yellow-500/20 to-orange-600/25 blur-3xl animate-pulse-slow" />
+        </div>
+      )}
+
+      {/* Storm Core tempest squall aura */}
+      {theme === 'storm-core' && !isMotionSuppressed && areWeatherEffectsEnabled && (
+        <div className="absolute inset-0 overflow-hidden opacity-45">
+          <div className="absolute -top-[15%] -left-[10%] w-[120%] h-[70%] rounded-full bg-gradient-to-r from-indigo-900/35 via-blue-900/30 to-purple-950/35 blur-3xl animate-pulse-slow" />
+        </div>
+      )}
+
+      {/* Fog/Mist Horizontal Layer */}
       {visualState.conditionKey === 'fog' && !isMotionSuppressed && areWeatherEffectsEnabled && (
-        <div className="absolute inset-0 opacity-25">
-          <div className="absolute top-1/4 -left-1/2 w-[200%] h-64 bg-gradient-to-r from-transparent via-slate-300/20 to-transparent blur-2xl animate-float" />
-          <div className="absolute top-1/2 -right-1/2 w-[200%] h-80 bg-gradient-to-r from-transparent via-slate-400/15 to-transparent blur-3xl animate-pulse-slow" />
+        <div className="absolute inset-0 opacity-30">
+          <div className="absolute top-1/3 -left-1/2 w-[200%] h-64 bg-gradient-to-r from-transparent via-slate-300/25 to-transparent blur-2xl animate-float" />
+          <div className="absolute top-2/3 -right-1/2 w-[200%] h-80 bg-gradient-to-r from-transparent via-slate-400/20 to-transparent blur-3xl animate-pulse-slow" />
         </div>
       )}
 
-      {/* 7. Lightning Flash Screen Overlay */}
+      {/* Lightning Flash Screen Illumination */}
       {lightningActive && (
-        <div className="absolute inset-0 bg-indigo-200/25 backdrop-blur-[1px] transition-opacity duration-75 z-10" />
+        <div className="absolute inset-0 bg-indigo-100/35 backdrop-blur-[1px] transition-opacity duration-75 z-10" />
       )}
 
-      {/* 8. Dynamic Particles Canvas */}
-      {visualState.particleType !== 'none' && !isMotionSuppressed && areWeatherEffectsEnabled && (
+      {/* ============================================================== */}
+      {/* LAYER 4: DYNAMIC PARTICLES CANVAS (Rain, Snow, Stars, Embers)  */}
+      {/* ============================================================== */}
+      {!isMotionSuppressed && areWeatherEffectsEnabled && (
         <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
       )}
 
-      {/* 9. Contrast Barrier for WCAG AAA Accessibility */}
-      <div className={`absolute inset-0 transition-all duration-700 ${
-        resolvedMode === 'dark' 
-          ? 'bg-slate-950/60 backdrop-blur-[1.5px]' 
-          : 'bg-white/50 backdrop-blur-[1px]'
-      }`} />
+      {/* ============================================================== */}
+      {/* LAYER 5: CONTRAST READABILITY BARRIER (WCAG AAA Compliance)    */}
+      {/* ============================================================== */}
+      <div 
+        className={`absolute inset-0 transition-all duration-700 pointer-events-none ${
+          resolvedMode === 'dark' 
+            ? 'bg-slate-950/65 backdrop-blur-[1.5px]' 
+            : 'bg-white/55 backdrop-blur-[1.5px]'
+        }`} 
+      />
     </div>
   );
 }

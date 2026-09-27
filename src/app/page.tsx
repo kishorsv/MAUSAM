@@ -65,10 +65,12 @@ import { RainNowcastCard } from '@/components/weather/RainNowcastCard';
 import { WeatherRiskTimeline } from '@/components/weather/WeatherRiskTimeline';
 import { HyperlocalSwitcher } from '@/components/weather/HyperlocalSwitcher';
 import { IntelligenceFeed } from '@/components/weather/IntelligenceFeed';
+import { Sidebar } from '@/components/navigation/Sidebar';
+import { AIAssistantHeroCard } from '@/components/ai/AIAssistantHeroCard';
+import { GlassPanel } from '@/components/common/GlassPanel';
 
 // Atmospheric Living Background & Theme Engine
 import { useTheme } from '@/components/theme/ThemeContext';
-import { LivingWeatherBackground } from '@/components/theme/LivingWeatherBackground';
 
 // Icons
 import { 
@@ -97,7 +99,13 @@ export default function HomePage() {
   // UI Modals & Settings
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isAIOpen, setIsAIOpen] = useState(false);
+  const [aiInitialPrompt, setAiInitialPrompt] = useState<string | undefined>(undefined);
   const [showExplanationModal, setShowExplanationModal] = useState(false);
+
+  const handleOpenAIWithPrompt = (prompt?: string) => {
+    setAiInitialPrompt(prompt);
+    setIsAIOpen(true);
+  };
   const [selectedLocation, setSelectedLocation] = useState<WeatherLocation>({
     name: 'Bengaluru',
     region: 'Karnataka',
@@ -297,70 +305,72 @@ export default function HomePage() {
 
   return (
     <div 
-      className="min-h-screen flex flex-col pb-20 sm:pb-12 relative overflow-x-hidden transition-colors duration-500"
+      className="min-h-screen flex relative overflow-x-hidden transition-colors duration-500"
       style={{ color: 'var(--foreground)' }}
     >
-      {/* Living Atmospheric Dynamic Background Environment */}
-      <LivingWeatherBackground visualState={visualState} />
+      {/* Premium Desktop Sidebar Navigation */}
+      <Sidebar onOpenAI={() => handleOpenAIWithPrompt()} />
 
-      {/* Header Bar */}
-      <Header
-        currentLocation={weather?.location || selectedLocation}
-        isLive={weather?.isLive ?? true}
-        cached={weather?.cached}
-        language={language}
-        onLanguageChange={handleLanguageChange}
-        onOpenSearch={() => setIsSearchOpen(true)}
-        onOpenAI={() => setIsAIOpen(true)}
-        unreadCount={unreadNotifications}
-        userName="Priya"
-        isOffline={isOffline}
-      />
+      {/* Main Content Dashboard Area */}
+      <div className="flex-1 flex flex-col min-w-0 pb-20 sm:pb-12">
+        {/* Floating Top Header Bar */}
+        <Header
+          currentLocation={weather?.location || selectedLocation}
+          isLive={weather?.isLive ?? true}
+          cached={weather?.cached}
+          language={language}
+          onLanguageChange={handleLanguageChange}
+          onOpenSearch={() => setIsSearchOpen(true)}
+          onOpenAI={() => handleOpenAIWithPrompt()}
+          unreadCount={unreadNotifications}
+          userName="Priya"
+          isOffline={isOffline}
+        />
 
-      {/* Main Content Dashboard */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
-        {/* Lifestyle Persona Dynamic Toggles Bar */}
-        <div 
-          className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-3xl glass-panel border"
-          style={{ borderColor: 'var(--border)' }}
-        >
-          <div className="flex items-center gap-2">
-            <SlidersHorizontal className="w-4 h-4" style={{ color: 'var(--primary)' }} />
-            <span className="text-xs font-bold" style={{ color: 'var(--foreground)' }}>
-              Personalized Lifestyle Engine:
-            </span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {lifestyleToggles.map((item) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.key}
-                  onClick={() => handleTogglePersona(item.key)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
-                    item.active
-                      ? 'bg-primary-600/20 text-primary-300 border-primary-500/40 shadow-sm'
-                      : 'bg-white/[0.02] text-slate-400 border-white/5 hover:text-slate-200'
-                  }`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  <span>{item.label}</span>
-                  {item.active && <Check className="w-3 h-3 text-primary-400 ml-0.5" />}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Explainability Button */}
-          <button
-            onClick={() => setShowExplanationModal(true)}
-            className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-primary-300 transition-colors ml-auto sm:ml-0"
+        {/* Main Content Dashboard */}
+        <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 space-y-6">
+          {/* Lifestyle Persona Dynamic Toggles Bar */}
+          <GlassPanel 
+            variant="card"
+            className="flex flex-wrap items-center justify-between gap-3 p-4"
           >
-            <Info className="w-3.5 h-3.5" />
-            <span>Why this card order?</span>
-          </button>
-        </div>
+            <div className="flex items-center gap-2">
+              <SlidersHorizontal className="w-4 h-4 text-[var(--primary)]" />
+              <span className="text-xs font-bold text-[var(--foreground)]">
+                Personalized Lifestyle Engine:
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {lifestyleToggles.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => handleTogglePersona(item.key)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                      item.active
+                        ? 'bg-[var(--primary)]/20 text-[var(--primary)] border-[var(--primary)]/40 shadow-sm'
+                        : 'bg-white/5 text-slate-400 border-white/5 hover:text-slate-200'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    <span>{item.label}</span>
+                    {item.active && <Check className="w-3 h-3 text-[var(--primary)] ml-0.5" />}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Explainability Button */}
+            <button
+              onClick={() => setShowExplanationModal(true)}
+              className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-[var(--primary)] transition-colors ml-auto sm:ml-0"
+            >
+              <Info className="w-3.5 h-3.5" />
+              <span>Why this card order?</span>
+            </button>
+          </GlassPanel>
 
         {/* Hyperlocal Microclimate Stations Switcher */}
         {savedLocations.length > 0 && (
@@ -396,6 +406,12 @@ export default function HomePage() {
         {/* Populated Intelligent Dynamic Feed */}
         {!loading && !error && weather && (
           <div className="space-y-6">
+            {/* Prominent Cinematic MAUSAM AI Weather Intelligence Panel */}
+            <AIAssistantHeroCard 
+              weather={weather} 
+              onOpenAI={handleOpenAIWithPrompt} 
+            />
+
             {/* Render Cards Dynamically in Priority Order */}
             {prioritizedCards.map((card) => {
               switch (card.id) {
@@ -559,11 +575,12 @@ export default function HomePage() {
           </div>
         )}
       </main>
+      </div>
 
       {/* Floating AI Assistant Trigger Button (Bottom Right) */}
       <div className="fixed bottom-16 sm:bottom-6 right-6 z-40">
         <button
-          onClick={() => setIsAIOpen(true)}
+          onClick={() => handleOpenAIWithPrompt()}
           className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-gradient-to-r from-violet-600 via-primary-600 to-cyan-500 hover:scale-105 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-2xl transition-all shadow-glow-primary border border-white/20"
         >
           <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
@@ -589,8 +606,12 @@ export default function HomePage() {
       {weather && (
         <AIChatDrawer
           isOpen={isAIOpen}
-          onClose={() => setIsAIOpen(false)}
+          onClose={() => {
+            setIsAIOpen(false);
+            setAiInitialPrompt(undefined);
+          }}
           weather={weather}
+          initialPrompt={aiInitialPrompt}
         />
       )}
 

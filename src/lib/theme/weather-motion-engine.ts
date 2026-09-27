@@ -270,6 +270,131 @@ export class WeatherMotionEngine {
           windSpeedNormalized
         };
 
+      // 6. OCEAN PULSE
+      case 'ocean-pulse':
+        return {
+          themeId: 'ocean-pulse',
+          conditionKey,
+          particleType: isStorm ? 'lightning' : isRain ? 'rain' : 'water',
+          timeOfDay,
+          bgGradient: mode === 'dark'
+            ? 'bg-gradient-to-b from-[#020e1a] via-[#041c33] to-[#031322]'
+            : 'bg-gradient-to-b from-[#f0fdfa] via-[#ccfbf1] to-[#f8fafc]',
+          atmosphericGlow: mode === 'dark'
+            ? 'radial-gradient(ellipse at 50% 30%, rgba(6, 182, 212, 0.28) 0%, rgba(14, 165, 233, 0.16) 50%, transparent 80%)'
+            : 'radial-gradient(ellipse at 50% 30%, rgba(13, 148, 136, 0.18) 0%, rgba(6, 182, 212, 0.12) 50%, transparent 80%)',
+          accentColor: '#06b6d4',
+          glassPanelClass: mode === 'dark'
+            ? 'bg-[#05223c]/75 backdrop-blur-2xl border-cyan-500/25 shadow-glow-primary'
+            : 'bg-white/85 backdrop-blur-xl border-cyan-600/20 shadow-lg',
+          glassBorderClass: 'border-cyan-500/35',
+          heroHeadline: 'Ocean Pulse Marine Horizon',
+          atmosphereNote: 'Deep coastal marine modeling with slow rhythmic tidal swell and sea-breeze moisture.',
+          enableLightning: isStorm,
+          rainIntensity,
+          windSpeedNormalized
+        };
+
+      // 7. MONSOON
+      case 'monsoon':
+        return {
+          themeId: 'monsoon',
+          conditionKey,
+          particleType: isStorm ? 'lightning' : 'rain',
+          timeOfDay,
+          bgGradient: mode === 'dark'
+            ? 'bg-gradient-to-b from-[#030910] via-[#091829] to-[#040e18]'
+            : 'bg-gradient-to-b from-[#f1f5f9] via-[#e2e8f0] to-[#f8fafc]',
+          atmosphericGlow: mode === 'dark'
+            ? 'radial-gradient(ellipse at 50% 20%, rgba(14, 165, 233, 0.22) 0%, rgba(2, 132, 199, 0.15) 50%, transparent 75%)'
+            : 'radial-gradient(ellipse at 50% 20%, rgba(2, 132, 199, 0.15) 0%, rgba(14, 165, 233, 0.1) 50%, transparent 75%)',
+          accentColor: '#0ea5e9',
+          glassPanelClass: mode === 'dark'
+            ? 'bg-[#0b1c2e]/75 backdrop-blur-2xl border-sky-500/25 shadow-glow-primary'
+            : 'bg-white/85 backdrop-blur-xl border-sky-600/20 shadow-lg',
+          glassBorderClass: 'border-sky-500/35',
+          heroHeadline: 'Monsoon Rain-Drenched Front',
+          atmosphereNote: 'Precipitation-saturated maritime tropical front with continuous droplet condensation.',
+          enableLightning: isStorm,
+          rainIntensity: Math.max(60, rainIntensity),
+          windSpeedNormalized: Math.max(35, windSpeedNormalized)
+        };
+
+      // 8. DESERT GLOW
+      case 'desert-glow':
+        return {
+          themeId: 'desert-glow',
+          conditionKey,
+          particleType: isStorm ? 'lightning' : isRain ? 'rain' : 'dust',
+          timeOfDay,
+          bgGradient: mode === 'dark'
+            ? 'bg-gradient-to-b from-[#140b04] via-[#2a1708] to-[#170c04]'
+            : 'bg-gradient-to-b from-[#fffdf5] via-[#fef3c7] to-[#fff7ed]',
+          atmosphericGlow: mode === 'dark'
+            ? 'radial-gradient(ellipse at 50% 25%, rgba(245, 158, 11, 0.32) 0%, rgba(217, 119, 6, 0.18) 50%, transparent 80%)'
+            : 'radial-gradient(ellipse at 50% 25%, rgba(217, 119, 6, 0.18) 0%, rgba(245, 158, 11, 0.12) 50%, transparent 80%)',
+          accentColor: '#f59e0b',
+          glassPanelClass: mode === 'dark'
+            ? 'bg-[#331c0a]/75 backdrop-blur-2xl border-amber-500/25 shadow-glow-amber'
+            : 'bg-white/85 backdrop-blur-xl border-amber-600/20 shadow-lg',
+          glassBorderClass: 'border-amber-500/35',
+          heroHeadline: 'Solar Dunes & Radiant Heat Haze',
+          atmosphereNote: 'High direct solar irradiance with dry convective thermals and low ambient relative humidity.',
+          enableLightning: isStorm,
+          rainIntensity,
+          windSpeedNormalized
+        };
+
+      // 9. AURORA SKY
+      case 'aurora-sky':
+        return {
+          themeId: 'aurora-sky',
+          conditionKey,
+          particleType: isStorm ? 'lightning' : isRain ? 'rain' : 'aurora',
+          timeOfDay,
+          bgGradient: mode === 'dark'
+            ? 'bg-gradient-to-b from-[#020712] via-[#05142e] to-[#030b1c]'
+            : 'bg-gradient-to-b from-[#f0fdf4] via-[#dcfce7] to-[#f0fdfa]',
+          atmosphericGlow: mode === 'dark'
+            ? 'radial-gradient(ellipse at 50% 15%, rgba(34, 211, 238, 0.32) 0%, rgba(52, 211, 153, 0.22) 40%, rgba(168, 85, 247, 0.18) 70%, transparent 85%)'
+            : 'radial-gradient(ellipse at 50% 15%, rgba(5, 150, 105, 0.18) 0%, rgba(34, 211, 238, 0.12) 40%, transparent 85%)',
+          accentColor: '#22d3ee',
+          glassPanelClass: mode === 'dark'
+            ? 'bg-[#081735]/75 backdrop-blur-2xl border-cyan-400/25 shadow-glow-primary'
+            : 'bg-white/85 backdrop-blur-xl border-cyan-600/20 shadow-lg',
+          glassBorderClass: 'border-cyan-400/35',
+          heroHeadline: 'Geomagnetic Polar Light Curtains',
+          atmosphereNote: 'High-latitude magnetosphere ionization generating multi-curtain emerald and cyan skywaves.',
+          enableLightning: isStorm,
+          rainIntensity,
+          windSpeedNormalized
+        };
+
+      // 10. STORM CORE
+      case 'storm-core':
+        return {
+          themeId: 'storm-core',
+          conditionKey,
+          particleType: 'lightning',
+          timeOfDay,
+          bgGradient: mode === 'dark'
+            ? 'bg-gradient-to-b from-[#03050c] via-[#080d1e] to-[#040713]'
+            : 'bg-gradient-to-b from-[#f8fafc] via-[#e0e7ff] to-[#e2e8f0]',
+          atmosphericGlow: mode === 'dark'
+            ? 'radial-gradient(ellipse at 50% 20%, rgba(99, 102, 241, 0.35) 0%, rgba(56, 189, 248, 0.18) 50%, transparent 80%)'
+            : 'radial-gradient(ellipse at 50% 20%, rgba(79, 70, 229, 0.2) 0%, rgba(2, 132, 199, 0.12) 50%, transparent 80%)',
+          accentColor: '#6366f1',
+          glassPanelClass: mode === 'dark'
+            ? 'bg-[#0d132a]/75 backdrop-blur-2xl border-indigo-500/30 shadow-glow-primary'
+            : 'bg-white/85 backdrop-blur-xl border-indigo-600/20 shadow-lg',
+          glassBorderClass: 'border-indigo-500/40',
+          heroHeadline: 'Severe Tempest Squall Front',
+          atmosphereNote: 'High-energy supercell convective updraft with localized wind shear and lightning activity.',
+          enableLightning: true,
+          rainIntensity: Math.max(80, rainIntensity),
+          windSpeedNormalized: Math.max(50, windSpeedNormalized)
+        };
+
       // LEGACY: LIVING WEATHER
       case 'living-weather':
       default:
