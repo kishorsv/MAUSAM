@@ -167,7 +167,7 @@ export default function HomePage() {
     } finally {
       setLoading(false);
     }
-  }, [preferences]);
+  }, [preferences, setWeatherForTheme]);
 
   // Initial mount load
   useEffect(() => {
