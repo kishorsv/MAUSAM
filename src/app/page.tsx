@@ -10,9 +10,29 @@ import { AQICard } from '@/components/weather/AQICard';
 import { WeatherAlert } from '@/components/weather/WeatherAlert';
 import { ActivityScore } from '@/components/weather/ActivityScore';
 import { SmartRecommendation } from '@/components/weather/SmartRecommendation';
-import { LocationSearchModal } from '@/components/weather/LocationSearchModal';
-import { AIChatDrawer } from '@/components/ai/AIChatDrawer';
-import { WeatherMapComponent } from '@/components/map/WeatherMapComponent';
+import dynamic from 'next/dynamic';
+
+const LocationSearchModal = dynamic(
+  () => import('@/components/weather/LocationSearchModal').then((mod) => mod.LocationSearchModal),
+  { ssr: false }
+);
+
+const AIChatDrawer = dynamic(
+  () => import('@/components/ai/AIChatDrawer').then((mod) => mod.AIChatDrawer),
+  { ssr: false }
+);
+
+const WeatherMapComponent = dynamic(
+  () => import('@/components/map/WeatherMapComponent').then((mod) => mod.WeatherMapComponent),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-64 rounded-3xl glass-panel border border-white/5 flex items-center justify-center text-slate-500 text-xs">
+        Loading Interactive Weather Radar Map...
+      </div>
+    )
+  }
+);
 
 // Persona Modules
 import { FitnessModule } from '@/components/modules/FitnessModule';
@@ -38,6 +58,7 @@ import { Language, translations } from '@/lib/i18n/translations';
 // Advanced Intelligence & Decision Engines
 import { rainNowcastingEngine, RainNowcastResult } from '@/lib/weather/nowcast';
 import { weatherDecisionEngine, DecisionEngineOutput } from '@/lib/intelligence/decision-engine';
+import { personalizationEngine } from '@/lib/personalization/engine';
 
 // Extended Weather Components
 import { RainNowcastCard } from '@/components/weather/RainNowcastCard';
@@ -141,30 +162,38 @@ export default function HomePage() {
       setWeather(weatherData);
       setWeatherForTheme(weatherData);
 
-      // 2. Compute Personalization & Deterministic Priority
-      const pRes = await fetch('/api/personalization', {
+      // FAST FIRST PAINT: Compute card priorities instantly in 0ms on the client!
+      const immediateCards = personalizationEngine.calculateCardPriorities(weatherData, prefsOverride || preferences);
+      const immediateWindows = personalizationEngine.calculateFitnessWindows(weatherData.hourly, weatherData.airQuality?.aqi);
+      setPrioritizedCards(immediateCards);
+      setFitnessWindows(immediateWindows);
+      setLoading(false); // Immediately dismiss skeleton & reveal core dashboard
+
+      // 2. Non-blocking Asynchronous Background Synchronization
+      fetch('/api/personalization', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           weather: weatherData,
           preferences: prefsOverride || preferences
         })
-      });
-
-      if (pRes.ok) {
-        const pData = await pRes.json();
-        setPrioritizedCards(pData.prioritizedCards || []);
-        setFitnessWindows(pData.fitnessWindows || []);
-        setScores(pData.scores || null);
-        setInsights(pData.insights || []);
-        if (pData.activePreferences && !preferences) {
-          setPreferences(pData.activePreferences);
-          setLanguage(pData.activePreferences.language || 'en');
-        }
-      }
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((pData) => {
+          if (pData) {
+            if (pData.prioritizedCards) setPrioritizedCards(pData.prioritizedCards);
+            if (pData.fitnessWindows) setFitnessWindows(pData.fitnessWindows);
+            if (pData.scores) setScores(pData.scores);
+            if (pData.insights) setInsights(pData.insights);
+            if (pData.activePreferences && !preferences) {
+              setPreferences(pData.activePreferences);
+              setLanguage(pData.activePreferences.language || 'en');
+            }
+          }
+        })
+        .catch(() => {});
     } catch (err: any) {
       setError(err.message || "Failed to load weather data.");
-    } finally {
       setLoading(false);
     }
   }, [preferences, setWeatherForTheme]);
@@ -206,35 +235,34 @@ export default function HomePage() {
     };
     setPreferences(updated);
 
-    // Save to database
-    try {
-      await fetch('/api/preferences', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ [personaKey]: updated[personaKey] })
-      });
-    } catch {
-      // ignore
+    // INSTANT 0ms local recalculation: Re-rank cards immediately on user touch
+    if (weather) {
+      const immediateCards = personalizationEngine.calculateCardPriorities(weather, updated);
+      setPrioritizedCards(immediateCards);
     }
 
-    // Immediately re-run personalization engine with the new lifestyle preference
+    // Persist to database asynchronously
+    fetch('/api/preferences', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [personaKey]: updated[personaKey] })
+    }).catch(() => {});
+
+    // Asynchronously refresh server insights in background
     if (weather) {
-      try {
-        const pRes = await fetch('/api/personalization', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ weather, preferences: updated })
-        });
-        if (pRes.ok) {
-          const pData = await pRes.json();
-          setPrioritizedCards(pData.prioritizedCards || []);
-          setFitnessWindows(pData.fitnessWindows || []);
-          setScores(pData.scores || null);
-          setInsights(pData.insights || []);
-        }
-      } catch {
-        // ignore
-      }
+      fetch('/api/personalization', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ weather, preferences: updated })
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((pData) => {
+          if (pData) {
+            if (pData.scores) setScores(pData.scores);
+            if (pData.insights) setInsights(pData.insights);
+          }
+        })
+        .catch(() => {});
     }
   };
 

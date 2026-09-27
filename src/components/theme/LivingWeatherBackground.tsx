@@ -57,6 +57,7 @@ export function LivingWeatherBackground({ visualState }: LivingWeatherBackground
     if (!ctx) return;
 
     let animationFrameId: number;
+    let isPaused = false;
     let width = (canvas.width = window.innerWidth);
     let height = (canvas.height = window.innerHeight);
 
@@ -67,11 +68,27 @@ export function LivingWeatherBackground({ visualState }: LivingWeatherBackground
     };
     window.addEventListener('resize', handleResize);
 
-    const particleCount = visualState.particleType === 'rain' ? 80 :
-                          visualState.particleType === 'snow' ? 50 :
-                          visualState.particleType === 'stars' ? 70 :
-                          visualState.particleType === 'sunlight' ? 35 :
-                          visualState.particleType === 'aurora' ? 25 : 30;
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        isPaused = true;
+        cancelAnimationFrame(animationFrameId);
+      } else {
+        if (isPaused) {
+          isPaused = false;
+          animationFrameId = requestAnimationFrame(render);
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    const isMobile = window.innerWidth < 640;
+    const countMultiplier = isMobile ? 0.5 : 1.0;
+    const baseCount = visualState.particleType === 'rain' ? 80 :
+                      visualState.particleType === 'snow' ? 50 :
+                      visualState.particleType === 'stars' ? 70 :
+                      visualState.particleType === 'sunlight' ? 35 :
+                      visualState.particleType === 'aurora' ? 25 : 30;
+    const particleCount = Math.max(12, Math.round(baseCount * countMultiplier));
 
     interface Particle {
       x: number;
@@ -197,6 +214,7 @@ export function LivingWeatherBackground({ visualState }: LivingWeatherBackground
     return () => {
       cancelAnimationFrame(animationFrameId);
       window.removeEventListener('resize', handleResize);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [visualState.particleType, reducedMotion]);
 
