@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { 
   CloudSun, Search, Bell, User, MapPin, Globe, Sparkles, 
-  Radio, Layers, Route, Users, Cpu, MoreHorizontal 
+  Radio, Layers, Route, Users, Cpu, MoreHorizontal, Palette 
 } from 'lucide-react';
 import { WeatherLocation } from '@/lib/weather/types';
 import { ModeBadge } from '../common/ModeBadge';
 import { Language, translations } from '@/lib/i18n/translations';
+import { useTheme } from '@/components/theme/ThemeContext';
+import { AVAILABLE_THEMES } from '@/lib/theme/types';
 
 interface HeaderProps {
   currentLocation?: WeatherLocation;
@@ -33,6 +35,8 @@ export function Header({
   userName,
   isOffline = false
 }: HeaderProps) {
+  const { theme, openThemeModal } = useTheme();
+  const activeTheme = AVAILABLE_THEMES.find(t => t.id === theme) || AVAILABLE_THEMES[0];
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [navMenuOpen, setNavMenuOpen] = useState(false);
   const t = translations[language] || translations.en;
@@ -164,6 +168,18 @@ export function Header({
               </div>
             )}
           </div>
+
+          {/* Visual Atmosphere Theme Switcher Trigger */}
+          <button
+            onClick={openThemeModal}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-primary-500/40 text-slate-300 text-xs font-semibold shadow-sm transition-all hover:scale-105 active:scale-95 group"
+            title="Switch Visual Atmosphere (5 Themes)"
+          >
+            <span className="text-sm">{activeTheme.icon}</span>
+            <span className="hidden sm:inline font-mono text-[11px] group-hover:text-primary-300 transition-colors">
+              {activeTheme.name}
+            </span>
+          </button>
 
           {/* Language Switcher Dropdown */}
           <div className="relative">

@@ -355,6 +355,77 @@ runTest('Satellite Provider: Implements ISatelliteProvider interface and identit
   assert.strictEqual(typeof satelliteProvider.getSatelliteLayers, 'function');
 });
 
+// 9. Weather Motion Engine & Visual Themes Tests
+const { weatherMotionEngine } = require('../src/lib/theme/weather-motion-engine.ts');
+
+runTest('Weather Motion Engine: Aurora theme generates electric cyan and aurora wave particles', () => {
+  const state = weatherMotionEngine.calculateVisualState(null, 'aurora');
+  assert.strictEqual(state.themeId, 'aurora');
+  assert.strictEqual(state.particleType, 'aurora');
+  assert.strictEqual(state.accentColor, '#22d3ee');
+  assert.ok(state.heroHeadline.includes('Aurora'));
+});
+
+runTest('Weather Motion Engine: Earth theme generates command center telemetry and satellite grid', () => {
+  const state = weatherMotionEngine.calculateVisualState(null, 'earth');
+  assert.strictEqual(state.themeId, 'earth');
+  assert.strictEqual(state.particleType, 'satellite-grid');
+  assert.strictEqual(state.accentColor, '#10b981');
+  assert.ok(state.heroHeadline.includes('Earth Command'));
+});
+
+runTest('Weather Motion Engine: Nature theme generates soothing green and organic atmosphere', () => {
+  const state = weatherMotionEngine.calculateVisualState(null, 'nature');
+  assert.strictEqual(state.themeId, 'nature');
+  assert.strictEqual(state.accentColor, '#34d399');
+  assert.ok(state.heroHeadline.includes('Nature'));
+});
+
+runTest('Weather Motion Engine: Weather Glass theme generates VisionOS crystal style with no canvas noise', () => {
+  const state = weatherMotionEngine.calculateVisualState(null, 'glass');
+  assert.strictEqual(state.themeId, 'glass');
+  assert.strictEqual(state.particleType, 'none');
+  assert.strictEqual(state.accentColor, '#e2e8f0');
+  assert.ok(state.glassPanelClass.includes('backdrop-blur-3xl'));
+});
+
+runTest('Weather Motion Engine: Living Weather dynamically enables lightning and storm aura on WMO 95', () => {
+  const stormPayload = {
+    location: { name: 'Kolkata', country: 'India', lat: 22.57, lon: 88.36 },
+    current: { temperature: 28, feelsLike: 34, humidity: 95, pressure: 996, windSpeed: 50, windDirection: 180, visibility: 3, uvIndex: 1, wmoCode: 95, condition: 'Thunderstorm', isDay: true, precipitation: 15 },
+    hourly: [{ precipitationProbability: 95, time: '15:00', temperature: 28, feelsLike: 34, precipitation: 15, windSpeed: 50, uvIndex: 1, humidity: 95, wmoCode: 95, condition: 'Storm', isDay: true }],
+    daily: [],
+    alerts: [],
+    provider: 'Test',
+    isLive: true,
+    fetchedAt: new Date().toISOString()
+  };
+
+  const state = weatherMotionEngine.calculateVisualState(stormPayload, 'living-weather');
+  assert.strictEqual(state.conditionKey, 'storm');
+  assert.strictEqual(state.enableLightning, true);
+  assert.strictEqual(state.particleType, 'lightning');
+  assert.strictEqual(state.accentColor, '#818cf8');
+});
+
+runTest('Weather Motion Engine: Living Weather triggers rain streaks for active precipitation', () => {
+  const rainPayload = {
+    location: { name: 'Bengaluru', country: 'India', lat: 12.97, lon: 77.59 },
+    current: { temperature: 22, feelsLike: 22, humidity: 85, pressure: 1010, windSpeed: 18, windDirection: 240, visibility: 6, uvIndex: 3, wmoCode: 61, condition: 'Rain', isDay: true, precipitation: 4 },
+    hourly: [{ precipitationProbability: 80, time: '14:00', temperature: 22, feelsLike: 22, precipitation: 4, windSpeed: 18, uvIndex: 3, humidity: 85, wmoCode: 61, condition: 'Rain', isDay: true }],
+    daily: [],
+    alerts: [],
+    provider: 'Test',
+    isLive: true,
+    fetchedAt: new Date().toISOString()
+  };
+
+  const state = weatherMotionEngine.calculateVisualState(rainPayload, 'living-weather');
+  assert.strictEqual(state.conditionKey, 'rain');
+  assert.strictEqual(state.particleType, 'rain');
+  assert.strictEqual(state.accentColor, '#38bdf8');
+});
+
 console.log('\n====================================================');
 console.log(`TEST RESULTS: ${passedTests} PASSED, ${failedTests} FAILED`);
 console.log('====================================================');

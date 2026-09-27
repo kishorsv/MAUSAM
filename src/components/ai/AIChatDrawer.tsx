@@ -134,14 +134,15 @@ export function AIChatDrawer({ isOpen, onClose, weather }: AIChatDrawerProps) {
               className={`max-w-[90%] rounded-2xl p-4 text-xs sm:text-sm leading-relaxed ${
                 msg.sender === 'user'
                   ? 'bg-primary-600 text-white font-medium rounded-tr-none shadow-glow-primary'
-                  : 'bg-slate-900/90 text-slate-200 border border-slate-800 rounded-tl-none'
+                  : 'bg-slate-900/95 text-slate-200 border border-violet-500/30 shadow-[0_0_24px_-4px_rgba(139,92,246,0.25)] rounded-tl-none'
               }`}
             >
               {/* If it's an AI response with grounded telemetry, display clearly separated sections */}
               {msg.data && (
-                <div className="mb-3 p-3 rounded-xl bg-black/40 border border-white/5 space-y-1.5 text-[11px] text-slate-300">
-                  <div className="text-[10px] uppercase font-bold text-primary-400 tracking-wider">
-                    [Observed Weather Data]
+                <div className="mb-3 p-3 rounded-xl bg-violet-950/20 border border-violet-500/20 space-y-1.5 text-[11px] text-slate-300">
+                  <div className="text-[10px] uppercase font-bold text-violet-400 tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-3 h-3 text-amber-300 animate-pulse" />
+                    <span>[Observed Weather Data]</span>
                   </div>
                   <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
                     <div>Temp: <span className="font-semibold text-white">{msg.data.observedWeather.temperature}</span></div>
@@ -181,9 +182,9 @@ export function AIChatDrawer({ isOpen, onClose, weather }: AIChatDrawerProps) {
         ))}
 
         {loading && (
-          <div className="flex items-center gap-2 p-3 rounded-2xl bg-slate-900/60 border border-slate-800 text-xs text-slate-400 animate-pulse">
+          <div className="flex items-center gap-2 p-3.5 rounded-2xl bg-violet-950/20 border border-violet-500/30 text-xs text-violet-300 animate-pulse">
             <Loader2 className="w-4 h-4 text-violet-400 animate-spin" />
-            Analyzing real-time meteorological variables...
+            Synthesizing grounded real-time meteorological variables...
           </div>
         )}
       </div>
@@ -199,7 +200,7 @@ export function AIChatDrawer({ isOpen, onClose, weather }: AIChatDrawerProps) {
               key={idx}
               onClick={() => handleSend(q)}
               disabled={loading}
-              className="shrink-0 px-2.5 py-1 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-[11px] text-slate-300 border border-slate-700/60 transition-colors"
+              className="whitespace-nowrap px-3 py-1.5 rounded-full bg-violet-950/30 hover:bg-violet-900/40 border border-violet-500/30 hover:border-violet-400 text-violet-300 text-xs font-medium transition-all shadow-sm shrink-0 disabled:opacity-50"
             >
               {q}
             </button>

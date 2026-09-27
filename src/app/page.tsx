@@ -45,6 +45,10 @@ import { WeatherRiskTimeline } from '@/components/weather/WeatherRiskTimeline';
 import { HyperlocalSwitcher } from '@/components/weather/HyperlocalSwitcher';
 import { IntelligenceFeed } from '@/components/weather/IntelligenceFeed';
 
+// Atmospheric Living Background & Theme Engine
+import { useTheme } from '@/components/theme/ThemeContext';
+import { LivingWeatherBackground } from '@/components/theme/LivingWeatherBackground';
+
 // Icons
 import { 
   Sparkles, SlidersHorizontal, Info, RefreshCw, 
@@ -52,6 +56,7 @@ import {
 } from 'lucide-react';
 
 export default function HomePage() {
+  const { visualState, setWeatherForTheme } = useTheme();
   const [weather, setWeather] = useState<WeatherPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -134,6 +139,7 @@ export default function HomePage() {
 
       const weatherData: WeatherPayload = await weatherRes.json();
       setWeather(weatherData);
+      setWeatherForTheme(weatherData);
 
       // 2. Compute Personalization & Deterministic Priority
       const pRes = await fetch('/api/personalization', {
@@ -262,7 +268,10 @@ export default function HomePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col pb-20 sm:pb-12">
+    <div className="min-h-screen text-slate-100 flex flex-col pb-20 sm:pb-12 relative overflow-x-hidden">
+      {/* Living Atmospheric Dynamic Background Environment */}
+      <LivingWeatherBackground visualState={visualState} />
+
       {/* Header Bar */}
       <Header
         currentLocation={weather?.location || selectedLocation}

@@ -1,11 +1,13 @@
 import React from 'react';
 import { 
   Sun, Cloud, CloudRain, CloudLightning, Wind, Droplets, 
-  Compass, Eye, Gauge, ShieldAlert, Sparkles, Navigation
+  Compass, Eye, Gauge, ShieldAlert, Sparkles, Navigation,
+  Sunrise, Sunset
 } from 'lucide-react';
 import { WeatherPayload } from '@/lib/weather/types';
 import { formatTemperature, formatWindSpeed, formatTimeAgo } from '@/lib/utils';
 import { Language, translations } from '@/lib/i18n/translations';
+import { useTheme } from '@/components/theme/ThemeContext';
 
 interface WeatherHeroProps {
   weather: WeatherPayload;
@@ -24,9 +26,17 @@ export function WeatherHero({
   onRefresh,
   onOpenSearch
 }: WeatherHeroProps) {
+  const { visualState } = useTheme();
   const t = translations[language] || translations.en;
   const current = weather.current;
   const location = weather.location;
+
+  const sunriseTime = weather.daily[0]?.sunrise 
+    ? (weather.daily[0].sunrise.includes('T') ? weather.daily[0].sunrise.slice(11, 16) : weather.daily[0].sunrise) 
+    : '06:12';
+  const sunsetTime = weather.daily[0]?.sunset 
+    ? (weather.daily[0].sunset.includes('T') ? weather.daily[0].sunset.slice(11, 16) : weather.daily[0].sunset) 
+    : '18:25';
 
   const getWeatherIcon = (wmoCode: number, isDay: boolean) => {
     if (wmoCode === 0 || wmoCode === 1) {
@@ -44,19 +54,36 @@ export function WeatherHero({
     return <Cloud className="w-16 h-16 sm:w-20 sm:h-20 text-slate-300" />;
   };
 
-  const getBackdropClass = (wmoCode: number, isDay: boolean) => {
-    if (!isDay) return 'glow-bg-night';
-    if (wmoCode === 0 || wmoCode === 1) return 'glow-bg-sunny';
-    if (wmoCode >= 51 && wmoCode <= 82) return 'glow-bg-rainy';
-    if (wmoCode >= 95) return 'glow-bg-storm';
-    return 'glow-bg-sunny';
-  };
-
   return (
-    <div className={`relative overflow-hidden rounded-3xl glass-panel p-6 sm:p-8 border border-white/10 shadow-2xl transition-all duration-300 ${getBackdropClass(current.wmoCode, current.isDay)}`}>
+    <div className={`relative overflow-hidden rounded-3xl glass-panel p-6 sm:p-8 border shadow-2xl transition-all duration-500 ${visualState.glassBorderClass}`}>
       {/* Decorative background atmospheric blur */}
-      <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 rounded-full bg-primary-500/10 blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none" />
+      <div 
+        className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 rounded-full blur-3xl pointer-events-none opacity-20" 
+        style={{ background: visualState.accentColor }}
+      />
+      <div 
+        className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 rounded-full blur-3xl pointer-events-none opacity-15"
+        style={{ background: visualState.accentColor }}
+      />
+
+      {/* Live Atmospheric Real-Time Status Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5 p-3 rounded-2xl bg-white/[0.02] border border-white/5 relative z-10">
+        <div className="flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full animate-pulse" style={{ background: visualState.accentColor }} />
+          <span className="text-xs font-bold text-white tracking-wide flex items-center gap-1.5">
+            <span className="text-slate-400 font-normal">Atmosphere:</span>
+            <span style={{ color: visualState.accentColor }}>{visualState.heroHeadline}</span>
+          </span>
+        </div>
+        <p className="text-[11px] text-slate-400 hidden lg:block max-w-md truncate">
+          {visualState.atmosphereNote}
+        </p>
+        <div className="flex items-center gap-3 text-[11px] font-mono text-slate-300 ml-auto sm:ml-0">
+          <span className="flex items-center gap-1"><Sunrise className="w-3.5 h-3.5 text-amber-400" /> {sunriseTime}</span>
+          <span className="text-slate-600">•</span>
+          <span className="flex items-center gap-1"><Sunset className="w-3.5 h-3.5 text-rose-400" /> {sunsetTime}</span>
+        </div>
+      </div>
 
       {/* Top Meta: Location, Updated, Provider */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6 relative z-10">

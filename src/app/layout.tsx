@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import { ThemeProvider } from '@/components/theme/ThemeContext';
+import { ThemeSwitcherModal } from '@/components/theme/ThemeSwitcherModal';
 
 export const metadata: Metadata = {
   title: 'MAUSAM — Smart Personalized Weather Intelligence',
@@ -22,7 +24,10 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="bg-slate-950 text-slate-100 antialiased min-h-screen selection:bg-primary-500/30 selection:text-primary-200">
-        {children}
+        <ThemeProvider>
+          {children}
+          <ThemeSwitcherModal />
+        </ThemeProvider>
       </body>
     </html>
   );
