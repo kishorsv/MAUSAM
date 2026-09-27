@@ -1,0 +1,177 @@
+{
+  "users": [
+    {
+      "id": "usr-admin-01",
+      "email": "admin@mausam.app",
+      "password_hash": "$2a$10$F.LUd94lWz/qCECgV4DD.Oz72z8rXqM1peBrx.MH3Z6k9dIfklJr2",
+      "full_name": "System Administrator",
+      "role": "admin",
+      "created_at": "2026-09-27T15:24:23.919Z",
+      "updated_at": "2026-09-27T15:24:23.919Z"
+    },
+    {
+      "id": "usr-demo-01",
+      "email": "user@mausam.app",
+      "password_hash": "$2a$10$OFTG7vSJH8hISxjqlnOxseWqWHV7wIgmAwg.jm2Kj/oYk9WlvhHM.",
+      "full_name": "Priya Sharma",
+      "role": "user",
+      "created_at": "2026-09-27T15:24:23.919Z",
+      "updated_at": "2026-09-27T15:24:23.919Z"
+    }
+  ],
+  "profiles": [
+    {
+      "id": "prf-admin-01",
+      "user_id": "usr-admin-01",
+      "default_lat": 12.9716,
+      "default_lon": 77.5946,
+      "default_city": "Bengaluru",
+      "onboarding_completed": true,
+      "created_at": "2026-09-27T15:24:23.919Z",
+      "updated_at": "2026-09-27T15:24:23.919Z"
+    },
+    {
+      "id": "prf-demo-01",
+      "user_id": "usr-demo-01",
+      "default_lat": 12.9716,
+      "default_lon": 77.5946,
+      "default_city": "Bengaluru",
+      "bio": "Outdoor enthusiast & morning runner",
+      "onboarding_completed": true,
+      "created_at": "2026-09-27T15:24:23.919Z",
+      "updated_at": "2026-09-27T15:24:23.919Z"
+    }
+  ],
+  "user_preferences": [
+    {
+      "id": "pref-admin-01",
+      "user_id": "usr-admin-01",
+      "health_enabled": true,
+      "fitness_enabled": true,
+      "travel_enabled": true,
+      "family_enabled": true,
+      "agriculture_enabled": true,
+      "commuter_enabled": true,
+      "event_enabled": true,
+      "beach_enabled": true,
+      "language": "en",
+      "temperature_unit": "celsius",
+      "wind_unit": "kmh",
+      "notification_enabled": true,
+      "created_at": "2026-09-27T15:24:23.919Z",
+      "updated_at": "2026-09-27T15:24:23.919Z"
+    },
+    {
+      "id": "pref-demo-01",
+      "user_id": "usr-demo-01",
+      "health_enabled": true,
+      "fitness_enabled": true,
+      "travel_enabled": true,
+      "family_enabled": false,
+      "agriculture_enabled": false,
+      "commuter_enabled": true,
+      "event_enabled": false,
+      "beach_enabled": false,
+      "language": "en",
+      "temperature_unit": "celsius",
+      "wind_unit": "kmh",
+      "notification_enabled": true,
+      "created_at": "2026-09-27T15:24:23.919Z",
+      "updated_at": "2026-09-27T15:24:23.919Z"
+    }
+  ],
+  "saved_locations": [
+    {
+      "id": "loc-01",
+      "user_id": "usr-demo-01",
+      "name": "Cubbon Park (Running Track)",
+      "latitude": 12.9763,
+      "longitude": 77.5929,
+      "location_type": "gym",
+      "is_pinned": true,
+      "created_at": "2026-09-27T15:24:23.919Z"
+    },
+    {
+      "id": "loc-02",
+      "user_id": "usr-demo-01",
+      "name": "Manyata Tech Park (Office)",
+      "latitude": 13.0475,
+      "longitude": 77.6219,
+      "location_type": "office",
+      "is_pinned": false,
+      "created_at": "2026-09-27T15:24:23.919Z"
+    }
+  ],
+  "notifications": [
+    {
+      "id": "notif-01",
+      "user_id": "usr-demo-01",
+      "title": "Optimal Running Window Ahead",
+      "message": "Temperature is 21°C with low humidity and optimal air quality between 6:00 AM - 7:30 AM.",
+      "category": "fitness",
+      "severity": "minor",
+      "is_read": false,
+      "created_at": "2026-09-27T14:24:23.919Z"
+    },
+    {
+      "id": "notif-02",
+      "user_id": "usr-demo-01",
+      "title": "Air Quality Advisory: Moderate PM2.5",
+      "message": "AQI currently at 88 in Bengaluru. Sensitive individuals should consider lighter workouts.",
+      "category": "aqi",
+      "severity": "moderate",
+      "is_read": false,
+      "created_at": "2026-09-27T13:24:23.919Z"
+    }
+  ],
+  "travel_plans": [
+    {
+      "id": "trv-01",
+      "user_id": "usr-demo-01",
+      "destination_name": "Coorg (Madikeri)",
+      "latitude": 12.4244,
+      "longitude": 75.7382,
+      "departure_date": "2026-09-30",
+      "return_date": "2026-10-02",
+      "notes": "Weekend coffee estate trail and trekking trip",
+      "packing_advice": [
+        "Light fleece jacket",
+        "Waterproof trail shoes",
+        "Windbreaker",
+        "Insect repellent"
+      ],
+      "created_at": "2026-09-27T15:24:23.919Z"
+    }
+  ],
+  "events": [
+    {
+      "id": "evt-01",
+      "user_id": "usr-demo-01",
+      "title": "Morning 10k Run & Breakfast",
+      "event_date": "2026-09-28",
+      "start_time": "06:30",
+      "end_time": "08:30",
+      "location_name": "Cubbon Park, Bengaluru",
+      "latitude": 12.9763,
+      "longitude": 77.5929,
+      "is_outdoor": true,
+      "comfort_score": 92,
+      "weather_summary": "Pleasant morning conditions, 20°C, zero rain probability",
+      "created_at": "2026-09-27T15:24:23.919Z"
+    }
+  ],
+  "notification_preferences": [
+    {
+      "id": "notifpref-01",
+      "user_id": "usr-demo-01",
+      "rain_alert": true,
+      "severe_storm": true,
+      "heat_wave": true,
+      "aqi_warning": true,
+      "fitness_window": true,
+      "travel_update": true,
+      "commute_update": true,
+      "created_at": "2026-09-27T15:24:23.919Z"
+    }
+  ]
+}

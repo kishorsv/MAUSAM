@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { CloudSun, Search, Bell, User, MapPin, Globe, Sparkles } from 'lucide-react';
+import { 
+  CloudSun, Search, Bell, User, MapPin, Globe, Sparkles, 
+  Radio, Layers, Route, Users, Cpu, MoreHorizontal 
+} from 'lucide-react';
 import { WeatherLocation } from '@/lib/weather/types';
 import { ModeBadge } from '../common/ModeBadge';
 import { Language, translations } from '@/lib/i18n/translations';
@@ -15,6 +18,7 @@ interface HeaderProps {
   onOpenAI: () => void;
   unreadCount?: number;
   userName?: string;
+  isOffline?: boolean;
 }
 
 export function Header({
@@ -26,13 +30,22 @@ export function Header({
   onOpenSearch,
   onOpenAI,
   unreadCount = 0,
-  userName
+  userName,
+  isOffline = false
 }: HeaderProps) {
   const [langMenuOpen, setLangMenuOpen] = useState(false);
+  const [navMenuOpen, setNavMenuOpen] = useState(false);
   const t = translations[language] || translations.en;
 
   return (
-    <header className="sticky top-0 z-40 w-full glass-panel border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 w-full glass-panel border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-xl">
+      {/* Offline Status Bar if network disconnected */}
+      {isOffline && (
+        <div className="bg-amber-500 text-slate-950 text-xs font-bold py-1 px-4 text-center tracking-wide">
+          OFFLINE MODE — Displaying last successfully retrieved weather data.
+        </div>
+      )}
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
         {/* Logo and Tagline */}
         <div className="flex items-center gap-3">
@@ -58,8 +71,32 @@ export function Header({
           </Link>
         </div>
 
+        {/* Desktop Quick Nav Links: Radar, Satellite, Route, Group, Station */}
+        <nav className="hidden xl:flex items-center gap-1 text-xs font-semibold text-slate-300">
+          <Link href="/radar" className="px-2.5 py-1.5 rounded-xl hover:bg-slate-800/80 hover:text-white transition-colors flex items-center gap-1.5">
+            <Radio className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Radar</span>
+          </Link>
+          <Link href="/satellite" className="px-2.5 py-1.5 rounded-xl hover:bg-slate-800/80 hover:text-white transition-colors flex items-center gap-1.5">
+            <Layers className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Satellite</span>
+          </Link>
+          <Link href="/route" className="px-2.5 py-1.5 rounded-xl hover:bg-slate-800/80 hover:text-white transition-colors flex items-center gap-1.5">
+            <Route className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Routes</span>
+          </Link>
+          <Link href="/group" className="px-2.5 py-1.5 rounded-xl hover:bg-slate-800/80 hover:text-white transition-colors flex items-center gap-1.5">
+            <Users className="w-3.5 h-3.5 text-violet-400" />
+            <span>Groups</span>
+          </Link>
+          <Link href="/station" className="px-2.5 py-1.5 rounded-xl hover:bg-slate-800/80 hover:text-white transition-colors flex items-center gap-1.5">
+            <Cpu className="w-3.5 h-3.5 text-lime-400" />
+            <span>IoT Station</span>
+          </Link>
+        </nav>
+
         {/* Location & Search Bar */}
-        <div className="flex-1 max-w-md hidden sm:flex items-center gap-2">
+        <div className="flex-1 max-w-xs hidden sm:flex items-center gap-2">
           <button
             onClick={onOpenSearch}
             className="w-full flex items-center justify-between px-3.5 py-2 rounded-2xl bg-slate-900/80 hover:bg-slate-800/80 border border-slate-800 hover:border-slate-700 text-slate-400 text-xs transition-all shadow-inner group"
@@ -75,7 +112,7 @@ export function Header({
         </div>
 
         {/* Right Actions: Mode Badge, AI Trigger, Language, Notifications, User */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 sm:gap-2.5">
           {/* Mode Indicator */}
           <ModeBadge isLive={isLive} cached={cached} className="hidden lg:inline-flex" />
 
@@ -88,6 +125,45 @@ export function Header({
             <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
             <span className="hidden sm:inline">Mausam AI</span>
           </button>
+
+          {/* More Features Dropdown for smaller desktop viewports */}
+          <div className="relative xl:hidden">
+            <button
+              onClick={() => setNavMenuOpen(!navMenuOpen)}
+              className="p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-800 text-slate-300 transition-colors"
+              title="More Feature Centers"
+            >
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
+
+            {navMenuOpen && (
+              <div className="absolute right-0 mt-2 w-48 glass-panel rounded-2xl p-2 shadow-2xl border border-slate-700/80 z-50 text-xs space-y-1">
+                <Link href="/radar" onClick={() => setNavMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-xl text-slate-300 hover:bg-slate-800">
+                  <Radio className="w-4 h-4 text-cyan-400" />
+                  <span>Doppler Radar</span>
+                </Link>
+                <Link href="/satellite" onClick={() => setNavMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-xl text-slate-300 hover:bg-slate-800">
+                  <Layers className="w-4 h-4 text-indigo-400" />
+                  <span>Satellite View</span>
+                </Link>
+                <Link href="/route" onClick={() => setNavMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-xl text-slate-300 hover:bg-slate-800">
+                  <Route className="w-4 h-4 text-emerald-400" />
+                  <span>Route Intelligence</span>
+                </Link>
+                <Link href="/group" onClick={() => setNavMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-xl text-slate-300 hover:bg-slate-800">
+                  <Users className="w-4 h-4 text-violet-400" />
+                  <span>Group Weather</span>
+                </Link>
+                <Link href="/station" onClick={() => setNavMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-xl text-slate-300 hover:bg-slate-800">
+                  <Cpu className="w-4 h-4 text-lime-400" />
+                  <span>IoT Weather Station</span>
+                </Link>
+                <Link href="/admin/system" onClick={() => setNavMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-xl text-slate-300 hover:bg-slate-800 border-t border-slate-800 pt-2">
+                  <span>API Health Monitor</span>
+                </Link>
+              </div>
+            )}
+          </div>
 
           {/* Language Switcher Dropdown */}
           <div className="relative">

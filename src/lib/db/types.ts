@@ -48,7 +48,7 @@ export interface SavedLocation {
   name: string;
   latitude: number;
   longitude: number;
-  location_type: 'home' | 'office' | 'school' | 'gym' | 'farm' | 'custom';
+  location_type: 'home' | 'office' | 'school' | 'gym' | 'farm' | 'event' | 'custom';
   is_pinned?: boolean;
   created_at: string;
 }
@@ -105,4 +105,90 @@ export interface NotificationPreferences {
   travel_update: boolean;
   commute_update: boolean;
   created_at: string;
+}
+
+export interface WeatherSource {
+  id: string;
+  name: string;
+  source_type: 'weather' | 'aqi' | 'radar' | 'satellite' | 'marine' | 'ai';
+  status: 'operational' | 'degraded' | 'unavailable';
+  latency_ms: number;
+  last_checked: string;
+  error_count: number;
+}
+
+export interface SensorDevice {
+  id: string;
+  user_id: string;
+  name: string;
+  device_model: string;
+  mac_address?: string;
+  is_connected: boolean;
+  last_reading_at?: string;
+  created_at: string;
+}
+
+export interface SensorReading {
+  id: string;
+  device_id: string;
+  temperature?: number;
+  humidity?: number;
+  rain_gauge?: number;
+  soil_moisture?: number;
+  barometric_pressure?: number;
+  wind_speed?: number;
+  battery_level?: number;
+  recorded_at: string;
+}
+
+export interface RouteWaypoint {
+  name: string;
+  latitude: number;
+  longitude: number;
+  temp?: number;
+  condition?: string;
+  rainProb?: number;
+  windSpeed?: number;
+  visibility?: number;
+  alerts?: string[];
+}
+
+export interface RouteTrip {
+  id: string;
+  user_id: string;
+  title: string;
+  start_location: string;
+  end_location: string;
+  waypoints: RouteWaypoint[];
+  travel_mode: 'car' | 'bike' | 'train' | 'bus';
+  created_at: string;
+}
+
+export interface GroupWeatherItem {
+  id: string;
+  user_id: string;
+  title: string;
+  group_type: 'road_trip' | 'college_tour' | 'family_outing' | 'event';
+  locations: {
+    name: string;
+    latitude: number;
+    longitude: number;
+    status: 'Good' | 'Moderate' | 'Poor';
+    temperature?: number;
+    condition?: string;
+    rainProb?: number;
+  }[];
+  created_at: string;
+}
+
+export interface IntelligenceFeedItem {
+  id: string;
+  time: string;
+  title: string;
+  message: string;
+  category: 'rain' | 'fitness' | 'uv' | 'travel' | 'aqi' | 'satellite' | 'radar';
+  urgency: 'info' | 'notice' | 'alert';
+  locationName: string;
+  source: string;
+  freshness: string;
 }

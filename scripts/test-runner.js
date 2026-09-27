@@ -190,6 +190,171 @@ runTest('Multilingual: All languages (en, kn, hi) contain required dictionary ke
   });
 });
 
+// 6. Rain Nowcasting Engine Tests
+const { rainNowcastingEngine } = require('../src/lib/weather/nowcast.ts');
+
+runTest('Rain Nowcast: Heavy rain (>5mm/hr or prob >= 75%) returns Heavy Downpour with High confidence', () => {
+  const rainPayload = {
+    location: { name: 'Bengaluru', country: 'India', lat: 12.97, lon: 77.59 },
+    current: { temperature: 23, feelsLike: 24, humidity: 88, pressure: 1008, windSpeed: 25, windDirection: 220, visibility: 5, uvIndex: 2, wmoCode: 65, condition: 'Heavy Rain', isDay: true, precipitation: 8 },
+    hourly: [
+      { precipitationProbability: 90, time: '13:00', temperature: 23, feelsLike: 24, precipitation: 8, windSpeed: 25, uvIndex: 2, humidity: 88, wmoCode: 65, condition: 'Heavy Rain', isDay: true },
+      { precipitationProbability: 80, time: '14:00', temperature: 22, feelsLike: 23, precipitation: 5, windSpeed: 20, uvIndex: 1, humidity: 90, wmoCode: 63, condition: 'Moderate Rain', isDay: true },
+      { precipitationProbability: 70, time: '15:00', temperature: 22, feelsLike: 23, precipitation: 3, windSpeed: 18, uvIndex: 1, humidity: 90, wmoCode: 61, condition: 'Rain', isDay: true }
+    ],
+    daily: [],
+    alerts: [],
+    provider: 'Test',
+    isLive: true,
+    fetchedAt: new Date().toISOString()
+  };
+
+  const res = rainNowcastingEngine.calculateNowcast(rainPayload);
+  assert.strictEqual(res.hasImminentRain, true);
+  assert.strictEqual(res.intensity, 'Heavy Downpour');
+  assert.strictEqual(res.confidence, 'High');
+  assert.strictEqual(res.sourceAgreement, 'Strong Agreement');
+  assert.ok(res.summary.includes('Heavy Downpour expected'));
+});
+
+runTest('Rain Nowcast: Clear conditions return None intensity and minimal precipitation risk', () => {
+  const dryPayload = {
+    location: { name: 'Jaipur', country: 'India', lat: 26.91, lon: 75.78 },
+    current: { temperature: 31, feelsLike: 31, humidity: 40, pressure: 1014, windSpeed: 12, windDirection: 90, visibility: 10, uvIndex: 8, wmoCode: 0, condition: 'Sunny', isDay: true, precipitation: 0 },
+    hourly: [
+      { precipitationProbability: 0, time: '12:00', temperature: 31, feelsLike: 31, precipitation: 0, windSpeed: 12, uvIndex: 8, humidity: 40, wmoCode: 0, condition: 'Sunny', isDay: true },
+      { precipitationProbability: 5, time: '13:00', temperature: 33, feelsLike: 33, precipitation: 0, windSpeed: 14, uvIndex: 9, humidity: 38, wmoCode: 0, condition: 'Sunny', isDay: true },
+      { precipitationProbability: 5, time: '14:00', temperature: 34, feelsLike: 34, precipitation: 0, windSpeed: 15, uvIndex: 8, humidity: 35, wmoCode: 0, condition: 'Sunny', isDay: true }
+    ],
+    daily: [],
+    alerts: [],
+    provider: 'Test',
+    isLive: true,
+    fetchedAt: new Date().toISOString()
+  };
+
+  const res = rainNowcastingEngine.calculateNowcast(dryPayload);
+  assert.strictEqual(res.hasImminentRain, false);
+  assert.strictEqual(res.intensity, 'None');
+  assert.ok(res.summary.includes('Minimal precipitation risk'));
+});
+
+runTest('Rain Nowcast: Telemetry age > 45 minutes reduces confidence to Medium', () => {
+  const staleTime = new Date(Date.now() - 55 * 60000).toISOString();
+  const stalePayload = {
+    location: { name: 'Bengaluru', country: 'India', lat: 12.97, lon: 77.59 },
+    current: { temperature: 24, feelsLike: 24, humidity: 70, pressure: 1010, windSpeed: 10, windDirection: 0, visibility: 8, uvIndex: 3, wmoCode: 1, condition: 'Clear', isDay: true, precipitation: 0 },
+    hourly: [
+      { precipitationProbability: 10, time: '12:00', temperature: 24, feelsLike: 24, precipitation: 0, windSpeed: 10, uvIndex: 3, humidity: 70, wmoCode: 1, condition: 'Clear', isDay: true },
+      { precipitationProbability: 10, time: '13:00', temperature: 25, feelsLike: 25, precipitation: 0, windSpeed: 10, uvIndex: 4, humidity: 68, wmoCode: 1, condition: 'Clear', isDay: true },
+      { precipitationProbability: 10, time: '14:00', temperature: 25, feelsLike: 25, precipitation: 0, windSpeed: 10, uvIndex: 3, humidity: 65, wmoCode: 1, condition: 'Clear', isDay: true }
+    ],
+    daily: [],
+    alerts: [],
+    provider: 'Test',
+    isLive: true,
+    fetchedAt: staleTime
+  };
+
+  const res = rainNowcastingEngine.calculateNowcast(stalePayload);
+  assert.strictEqual(res.confidence, 'Medium');
+  assert.ok(res.dataFreshnessMinutes >= 50);
+});
+
+// 7. Weather Decision Engine Tests
+const { weatherDecisionEngine } = require('../src/lib/intelligence/decision-engine.ts');
+
+runTest('Weather Decision Engine: Generates exactly 8 daylight/twilight slots in Risk Timeline', () => {
+  const samplePayload = {
+    location: { name: 'Delhi', country: 'India', lat: 28.61, lon: 77.20 },
+    current: { temperature: 29, feelsLike: 31, humidity: 65, pressure: 1010, windSpeed: 15, windDirection: 180, visibility: 6, uvIndex: 6, wmoCode: 2, condition: 'Partly Cloudy', isDay: true, precipitation: 0 },
+    hourly: [
+      { precipitationProbability: 10, time: '06:00', temperature: 22, feelsLike: 22, precipitation: 0, windSpeed: 8, uvIndex: 1, humidity: 75, wmoCode: 1, condition: 'Clear', isDay: true },
+      { precipitationProbability: 15, time: '08:00', temperature: 25, feelsLike: 25, precipitation: 0, windSpeed: 10, uvIndex: 3, humidity: 70, wmoCode: 1, condition: 'Clear', isDay: true },
+      { precipitationProbability: 20, time: '10:00', temperature: 28, feelsLike: 29, precipitation: 0, windSpeed: 12, uvIndex: 6, humidity: 65, wmoCode: 2, condition: 'Partly Cloudy', isDay: true },
+      { precipitationProbability: 35, time: '12:00', temperature: 32, feelsLike: 34, precipitation: 0, windSpeed: 14, uvIndex: 8, humidity: 55, wmoCode: 2, condition: 'Partly Cloudy', isDay: true },
+      { precipitationProbability: 70, time: '14:00', temperature: 30, feelsLike: 33, precipitation: 5, windSpeed: 20, uvIndex: 4, humidity: 75, wmoCode: 63, condition: 'Rain', isDay: true },
+      { precipitationProbability: 50, time: '16:00', temperature: 28, feelsLike: 30, precipitation: 2, windSpeed: 16, uvIndex: 2, humidity: 80, wmoCode: 61, condition: 'Light Rain', isDay: true },
+      { precipitationProbability: 20, time: '18:00', temperature: 26, feelsLike: 27, precipitation: 0, windSpeed: 12, uvIndex: 0, humidity: 80, wmoCode: 2, condition: 'Partly Cloudy', isDay: false },
+      { precipitationProbability: 10, time: '20:00', temperature: 24, feelsLike: 25, precipitation: 0, windSpeed: 10, uvIndex: 0, humidity: 82, wmoCode: 1, condition: 'Clear', isDay: false }
+    ],
+    daily: [],
+    alerts: [],
+    airQuality: { aqi: 110, pm25: 42, pm10: 85, category: 'moderate', status: 'Moderate' },
+    provider: 'Test',
+    isLive: true,
+    fetchedAt: new Date().toISOString()
+  };
+
+  const decision = weatherDecisionEngine.evaluate(samplePayload);
+  assert.strictEqual(decision.riskTimeline.length, 8);
+  assert.strictEqual(decision.riskTimeline[0].timeLabel, '6 AM');
+  assert.strictEqual(decision.riskTimeline[3].timeLabel, '12 PM');
+  assert.strictEqual(decision.riskTimeline[7].timeLabel, '8 PM');
+
+  // The 2 PM slot with 70% rain should be High risk
+  const slot2PM = decision.riskTimeline.find(s => s.timeLabel === '2 PM');
+  assert.ok(slot2PM);
+  assert.strictEqual(slot2PM.riskLevel, 'High');
+});
+
+runTest('Weather Decision Engine: Active severe alert results in Severe overall risk with advisory action', () => {
+  const alertPayload = {
+    location: { name: 'Kolkata', country: 'India', lat: 22.57, lon: 88.36 },
+    current: { temperature: 32, feelsLike: 38, humidity: 90, pressure: 994, windSpeed: 60, windDirection: 120, visibility: 3, uvIndex: 2, wmoCode: 95, condition: 'Severe Storm', isDay: true, precipitation: 25 },
+    hourly: [{ precipitationProbability: 95, time: '14:00', temperature: 32, feelsLike: 38, precipitation: 25, windSpeed: 60, uvIndex: 2, humidity: 90, wmoCode: 95, condition: 'Severe Storm', isDay: true }],
+    daily: [],
+    alerts: [{ id: 'storm-cyclone-1', title: 'Severe Cyclonic Storm Red Warning', severity: 'extreme', category: 'storm', description: 'Gale wind force 9', instruction: 'Evacuate low-lying areas immediately.', effective: '', expires: '', source: 'IMD' }],
+    airQuality: { aqi: 65, pm25: 18, pm10: 45, category: 'good', status: 'Good' },
+    provider: 'Test',
+    isLive: true,
+    fetchedAt: new Date().toISOString()
+  };
+
+  const decision = weatherDecisionEngine.evaluate(alertPayload);
+  assert.strictEqual(decision.overallRiskLevel, 'Severe');
+  assert.strictEqual(decision.topPriorityAction, 'Evacuate low-lying areas immediately.');
+});
+
+runTest('Weather Decision Engine: Integrates planned events and generates viable outdoor warning', () => {
+  const rainyDayPayload = {
+    location: { name: 'Bengaluru', country: 'India', lat: 12.97, lon: 77.59 },
+    current: { temperature: 23, feelsLike: 24, humidity: 85, pressure: 1010, windSpeed: 15, windDirection: 200, visibility: 7, uvIndex: 3, wmoCode: 61, condition: 'Rain', isDay: true, precipitation: 4 },
+    hourly: [{ precipitationProbability: 75, time: '16:00', temperature: 23, feelsLike: 24, precipitation: 4, windSpeed: 15, uvIndex: 3, humidity: 85, wmoCode: 61, condition: 'Rain', isDay: true }],
+    daily: [],
+    alerts: [],
+    airQuality: { aqi: 45, pm25: 12, pm10: 25, category: 'good', status: 'Good' },
+    provider: 'Test',
+    isLive: true,
+    fetchedAt: new Date().toISOString()
+  };
+
+  const mockEvents = [
+    { id: 'ev-1', user_id: 'usr-1', title: 'Sunset Garden Party', event_date: '2026-09-28', location_name: 'Cubbon Park', latitude: 12.97, longitude: 77.59, created_at: '' }
+  ];
+
+  const decision = weatherDecisionEngine.evaluate(rainyDayPayload, null, mockEvents);
+  assert.ok(decision.eventViabilityNote);
+  assert.ok(decision.eventViabilityNote.includes('Sunset Garden Party'));
+  assert.ok(decision.eventViabilityNote.includes('Waterproof canopy advised'));
+});
+
+// 8. Provider Contracts & Providers Integrity Tests
+const { radarProvider } = require('../src/lib/providers/radar-provider.ts');
+const { satelliteProvider } = require('../src/lib/providers/satellite-provider.ts');
+
+runTest('Radar Provider: Implements IRadarProvider interface and identity contracts', () => {
+  assert.strictEqual(radarProvider.id, 'rainviewer-radar');
+  assert.strictEqual(radarProvider.name, 'RainViewer Global Doppler Radar Network');
+  assert.strictEqual(typeof radarProvider.getRadarFrames, 'function');
+});
+
+runTest('Satellite Provider: Implements ISatelliteProvider interface and identity contracts', () => {
+  assert.strictEqual(satelliteProvider.id, 'satellite-core');
+  assert.strictEqual(satelliteProvider.name, 'EUMETSAT / NOAA / Open-Meteo Earth Observation');
+  assert.strictEqual(typeof satelliteProvider.getSatelliteLayers, 'function');
+});
+
 console.log('\n====================================================');
 console.log(`TEST RESULTS: ${passedTests} PASSED, ${failedTests} FAILED`);
 console.log('====================================================');

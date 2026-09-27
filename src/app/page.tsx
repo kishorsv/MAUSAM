@@ -32,8 +32,18 @@ import { WeatherPayload, WeatherLocation } from '@/lib/weather/types';
 import { PrioritizedCard, ActivityWindow } from '@/lib/personalization/types';
 import { GeneratedInsight } from '@/lib/automation/rules';
 import { ContextualScore } from '@/lib/scores/weather-scores';
-import { UserPreferences } from '@/lib/db/types';
+import { UserPreferences, SavedLocation } from '@/lib/db/types';
 import { Language, translations } from '@/lib/i18n/translations';
+
+// Advanced Intelligence & Decision Engines
+import { rainNowcastingEngine, RainNowcastResult } from '@/lib/weather/nowcast';
+import { weatherDecisionEngine, DecisionEngineOutput } from '@/lib/intelligence/decision-engine';
+
+// Extended Weather Components
+import { RainNowcastCard } from '@/components/weather/RainNowcastCard';
+import { WeatherRiskTimeline } from '@/components/weather/WeatherRiskTimeline';
+import { HyperlocalSwitcher } from '@/components/weather/HyperlocalSwitcher';
+import { IntelligenceFeed } from '@/components/weather/IntelligenceFeed';
 
 // Icons
 import { 
@@ -71,6 +81,41 @@ export default function HomePage() {
   });
   const [language, setLanguage] = useState<Language>('en');
   const [unreadNotifications, setUnreadNotifications] = useState(2);
+  const [isOffline, setIsOffline] = useState(false);
+  const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([]);
+
+  // Browser Network Connectivity Monitor
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setIsOffline(!navigator.onLine);
+      const handleOnline = () => setIsOffline(false);
+      const handleOffline = () => setIsOffline(true);
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
+      return () => {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+      };
+    }
+  }, []);
+
+  // Fetch Hyperlocal Saved Microclimate Locations
+  useEffect(() => {
+    const fetchSavedLocations = async () => {
+      try {
+        const res = await fetch('/api/locations');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.locations) && data.locations.length > 0) {
+            setSavedLocations(data.locations);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+    fetchSavedLocations();
+  }, []);
 
   // Fetch Weather and execute Personalization Engine
   const loadWeatherAndPersonalization = useCallback(async (loc: WeatherLocation, prefsOverride?: UserPreferences) => {
@@ -201,6 +246,10 @@ export default function HomePage() {
 
   const t = translations[language] || translations.en;
 
+  // Real-time Meteorological Decision & Nowcast Evaluations
+  const nowcast: RainNowcastResult | null = weather ? rainNowcastingEngine.calculateNowcast(weather) : null;
+  const decision: DecisionEngineOutput | null = weather ? weatherDecisionEngine.evaluate(weather, preferences) : null;
+
   const lifestyleToggles = [
     { key: 'fitness_enabled' as const, label: 'Fitness', icon: Activity, active: preferences?.fitness_enabled },
     { key: 'health_enabled' as const, label: 'Health & AQI', icon: Heart, active: preferences?.health_enabled },
@@ -225,6 +274,7 @@ export default function HomePage() {
         onOpenAI={() => setIsAIOpen(true)}
         unreadCount={unreadNotifications}
         userName="Priya"
+        isOffline={isOffline}
       />
 
       {/* Main Content Dashboard */}
@@ -269,6 +319,25 @@ export default function HomePage() {
           </button>
         </div>
 
+        {/* Hyperlocal Microclimate Stations Switcher */}
+        {savedLocations.length > 0 && (
+          <HyperlocalSwitcher
+            locations={savedLocations}
+            activeLocationName={weather?.location?.name || selectedLocation.name}
+            onSelect={(loc) => {
+              const targetLoc: WeatherLocation = {
+                name: loc.name,
+                region: loc.location_type,
+                country: 'Saved Station',
+                lat: loc.latitude,
+                lon: loc.longitude
+              };
+              setSelectedLocation(targetLoc);
+              loadWeatherAndPersonalization(targetLoc);
+            }}
+          />
+        )}
+
         {/* Loading Skeleton */}
         {loading && <DashboardSkeleton />}
 
@@ -294,9 +363,16 @@ export default function HomePage() {
                     </div>
                   );
 
-                case 'hero-weather':
+                case 'rain-warning':
                   return (
                     <div key={card.id} className="transition-all duration-300">
+                      {nowcast && <RainNowcastCard nowcast={nowcast} />}
+                    </div>
+                  );
+
+                case 'hero-weather':
+                  return (
+                    <div key={card.id} className="transition-all duration-300 space-y-6">
                       <WeatherHero
                         weather={weather}
                         unit={preferences?.temperature_unit || 'celsius'}
@@ -305,6 +381,9 @@ export default function HomePage() {
                         onRefresh={() => loadWeatherAndPersonalization(selectedLocation)}
                         onOpenSearch={() => setIsSearchOpen(true)}
                       />
+                      {nowcast && !prioritizedCards.some(c => c.id === 'rain-warning') && (
+                        <RainNowcastCard nowcast={nowcast} />
+                      )}
                     </div>
                   );
 
@@ -338,7 +417,13 @@ export default function HomePage() {
 
                 case 'hourly-timeline':
                   return (
-                    <div key={card.id} className="transition-all duration-300">
+                    <div key={card.id} className="transition-all duration-300 space-y-6">
+                      {decision?.riskTimeline && (
+                        <WeatherRiskTimeline
+                          slots={decision.riskTimeline}
+                          unit={preferences?.temperature_unit || 'celsius'}
+                        />
+                      )}
                       <HourlyForecast
                         items={weather.hourly}
                         unit={preferences?.temperature_unit || 'celsius'}
@@ -422,6 +507,9 @@ export default function HomePage() {
             {insights.length > 0 && (
               <SmartRecommendation insights={insights} />
             )}
+
+            {/* Live Telemetry Chronological Intelligence Feed */}
+            <IntelligenceFeed />
 
             {/* Interactive Weather Radar Map */}
             <WeatherMapComponent weather={weather} />

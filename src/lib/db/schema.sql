@@ -1,5 +1,5 @@
 -- ==============================================================================
--- MAUSAM WEATHER INTELLIGENCE — POSTGRESQL RELATIONAL SCHEMA
+-- MAUSAM WEATHER INTELLIGENCE — COMPREHENSIVE POSTGRESQL RELATIONAL SCHEMA
 -- ==============================================================================
 
 -- 1. Users Table
@@ -53,14 +53,14 @@ CREATE TABLE IF NOT EXISTS user_preferences (
 
 CREATE INDEX IF NOT EXISTS idx_user_preferences_user ON user_preferences(user_id);
 
--- 4. Saved Locations
+-- 4. Saved Locations (Hyperlocal microclimates)
 CREATE TABLE IF NOT EXISTS saved_locations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name VARCHAR(120) NOT NULL,
     latitude DOUBLE PRECISION NOT NULL,
     longitude DOUBLE PRECISION NOT NULL,
-    location_type VARCHAR(50) DEFAULT 'custom' CHECK (location_type IN ('home', 'office', 'school', 'gym', 'farm', 'custom')),
+    location_type VARCHAR(50) DEFAULT 'custom' CHECK (location_type IN ('home', 'office', 'school', 'gym', 'farm', 'event', 'custom')),
     is_pinned BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -172,18 +172,69 @@ CREATE TABLE IF NOT EXISTS ai_recommendations (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_ai_recommendations_user ON ai_recommendations(user_id);
+-- 12. Weather Sources & Health Telemetry
+CREATE TABLE IF NOT EXISTS weather_sources (
+    id VARCHAR(50) PRIMARY KEY,
+    name VARCHAR(120) NOT NULL,
+    source_type VARCHAR(50) NOT NULL, -- weather, aqi, radar, satellite, marine
+    status VARCHAR(20) DEFAULT 'operational' CHECK (status IN ('operational', 'degraded', 'unavailable')),
+    latency_ms INTEGER DEFAULT 0,
+    last_checked TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    error_count INTEGER DEFAULT 0
+);
 
--- 12. Notification Preferences
-CREATE TABLE IF NOT EXISTS notification_preferences (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+-- 13. IoT Sensor Devices (My Weather Station)
+CREATE TABLE IF NOT EXISTS sensor_devices (
+    id VARCHAR(50) PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    rain_alert BOOLEAN DEFAULT TRUE,
-    severe_storm BOOLEAN DEFAULT TRUE,
-    heat_wave BOOLEAN DEFAULT TRUE,
-    aqi_warning BOOLEAN DEFAULT TRUE,
-    fitness_window BOOLEAN DEFAULT TRUE,
-    travel_update BOOLEAN DEFAULT TRUE,
-    commute_update BOOLEAN DEFAULT TRUE,
+    name VARCHAR(120) NOT NULL,
+    device_model VARCHAR(80) NOT NULL, -- ESP32, LoRaWAN Gateway, Modbus Soil Probe
+    mac_address VARCHAR(50),
+    is_connected BOOLEAN DEFAULT FALSE,
+    last_reading_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_sensor_devices_user ON sensor_devices(user_id);
+
+-- 14. IoT Sensor Readings
+CREATE TABLE IF NOT EXISTS sensor_readings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    device_id VARCHAR(50) NOT NULL REFERENCES sensor_devices(id) ON DELETE CASCADE,
+    temperature DOUBLE PRECISION,
+    humidity DOUBLE PRECISION,
+    rain_gauge DOUBLE PRECISION,
+    soil_moisture DOUBLE PRECISION,
+    barometric_pressure DOUBLE PRECISION,
+    wind_speed DOUBLE PRECISION,
+    battery_level INTEGER,
+    recorded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_sensor_readings_device ON sensor_readings(device_id, recorded_at);
+
+-- 15. Route Weather Trips
+CREATE TABLE IF NOT EXISTS route_trips (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title VARCHAR(150) NOT NULL,
+    start_location VARCHAR(120) NOT NULL,
+    end_location VARCHAR(120) NOT NULL,
+    waypoints JSONB NOT NULL, -- array of { name, lat, lon }
+    travel_mode VARCHAR(30) DEFAULT 'car',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_route_trips_user ON route_trips(user_id);
+
+-- 16. Group Weather Comparisons
+CREATE TABLE IF NOT EXISTS group_weather (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title VARCHAR(150) NOT NULL,
+    group_type VARCHAR(50) DEFAULT 'road_trip', -- road_trip, college_tour, family_outing
+    locations JSONB NOT NULL, -- array of { name, lat, lon }
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_group_weather_user ON group_weather(user_id);
