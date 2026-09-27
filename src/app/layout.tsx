@@ -13,7 +13,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
-  themeColor: '#090d16',
+  themeColor: '#05070d',
 };
 
 export default function RootLayout({
@@ -22,8 +22,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className="bg-slate-950 text-slate-100 antialiased min-h-screen selection:bg-primary-500/30 selection:text-primary-200">
+    <html lang="en" className="dark" data-theme="midnight-ai" data-mode="dark" suppressHydrationWarning>
+      <body className="antialiased min-h-screen selection:bg-primary-500/30 selection:text-primary-200">
         <ThemeProvider>
           {children}
           <ThemeSwitcherModal />

@@ -26,7 +26,7 @@ export function WeatherHero({
   onRefresh,
   onOpenSearch
 }: WeatherHeroProps) {
-  const { visualState } = useTheme();
+  const { visualState, tokens } = useTheme();
   const t = translations[language] || translations.en;
   const current = weather.current;
   const location = weather.location;
@@ -55,7 +55,14 @@ export function WeatherHero({
   };
 
   return (
-    <div className={`relative overflow-hidden rounded-3xl glass-panel p-6 sm:p-8 border shadow-2xl transition-all duration-500 ${visualState.glassBorderClass}`}>
+    <div 
+      className={`relative overflow-hidden rounded-3xl glass-panel p-6 sm:p-8 border shadow-2xl transition-all duration-500 ${visualState.glassBorderClass}`}
+      style={{
+        background: 'var(--surface-glass)',
+        borderColor: 'var(--border)',
+        boxShadow: 'var(--shadow)'
+      }}
+    >
       {/* Decorative background atmospheric blur */}
       <div 
         className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 rounded-full blur-3xl pointer-events-none opacity-20" 
@@ -67,20 +74,23 @@ export function WeatherHero({
       />
 
       {/* Live Atmospheric Real-Time Status Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-5 p-3 rounded-2xl bg-white/[0.02] border border-white/5 relative z-10">
+      <div 
+        className="flex flex-wrap items-center justify-between gap-3 mb-5 p-3 rounded-2xl border relative z-10"
+        style={{ background: 'var(--surface)', borderColor: 'var(--border-subtle)' }}
+      >
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full animate-pulse" style={{ background: visualState.accentColor }} />
-          <span className="text-xs font-bold text-white tracking-wide flex items-center gap-1.5">
-            <span className="text-slate-400 font-normal">Atmosphere:</span>
+          <span className="text-xs font-bold tracking-wide flex items-center gap-1.5" style={{ color: 'var(--foreground)' }}>
+            <span style={{ color: 'var(--foreground-muted)' }}>Atmosphere:</span>
             <span style={{ color: visualState.accentColor }}>{visualState.heroHeadline}</span>
           </span>
         </div>
-        <p className="text-[11px] text-slate-400 hidden lg:block max-w-md truncate">
+        <p className="text-[11px] hidden lg:block max-w-md truncate" style={{ color: 'var(--foreground-muted)' }}>
           {visualState.atmosphereNote}
         </p>
-        <div className="flex items-center gap-3 text-[11px] font-mono text-slate-300 ml-auto sm:ml-0">
+        <div className="flex items-center gap-3 text-[11px] font-mono ml-auto sm:ml-0" style={{ color: 'var(--foreground-muted)' }}>
           <span className="flex items-center gap-1"><Sunrise className="w-3.5 h-3.5 text-amber-400" /> {sunriseTime}</span>
-          <span className="text-slate-600">•</span>
+          <span>•</span>
           <span className="flex items-center gap-1"><Sunset className="w-3.5 h-3.5 text-rose-400" /> {sunsetTime}</span>
         </div>
       </div>
@@ -90,69 +100,79 @@ export function WeatherHero({
         <div className="flex items-center gap-2">
           <button
             onClick={onOpenSearch}
-            className="group flex items-center gap-1.5 text-slate-300 hover:text-white transition-colors"
+            className="group flex items-center gap-1.5 transition-colors"
+            style={{ color: 'var(--foreground)' }}
           >
-            <Navigation className="w-4 h-4 text-primary-400 group-hover:scale-110 transition-transform" />
+            <Navigation className="w-4 h-4 group-hover:scale-110 transition-transform" style={{ color: 'var(--primary)' }} />
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
               {location.name}
             </h1>
             {location.region && (
-              <span className="text-sm text-slate-400 font-normal">
+              <span className="text-sm font-normal" style={{ color: 'var(--foreground-muted)' }}>
                 , {location.region}
               </span>
             )}
             {location.country && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 ml-1">
+              <span 
+                className="text-xs px-2 py-0.5 rounded-full border ml-1 font-semibold"
+                style={{ background: 'var(--border-subtle)', borderColor: 'var(--border)', color: 'var(--foreground)' }}
+              >
                 {location.country}
               </span>
             )}
           </button>
         </div>
 
-        <div className="flex items-center gap-2 text-[11px] text-slate-400">
+        <div className="flex items-center gap-2 text-[11px]" style={{ color: 'var(--foreground-muted)' }}>
           <span>{t.lastUpdated}: {formatTimeAgo(weather.fetchedAt)}</span>
-          <span className="text-slate-600">•</span>
-          <span className="text-slate-300 font-medium">{weather.provider}</span>
+          <span>•</span>
+          <span className="font-medium" style={{ color: 'var(--foreground)' }}>{weather.provider}</span>
         </div>
       </div>
 
       {/* Hero Temperature & Condition Presentation */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center relative z-10 mb-8">
         <div className="md:col-span-7 flex items-center gap-6 sm:gap-8">
-          <div className="shrink-0 p-3 sm:p-4 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-md shadow-inner">
+          <div 
+            className="shrink-0 p-3 sm:p-4 rounded-3xl border shadow-inner backdrop-blur-md"
+            style={{ background: 'var(--surface)', borderColor: 'var(--border-subtle)' }}
+          >
             {getWeatherIcon(current.wmoCode, current.isDay)}
           </div>
           <div>
             <div className="flex items-baseline gap-2">
-              <span className="text-5xl sm:text-7xl font-extrabold tracking-tighter text-white">
+              <span className="text-5xl sm:text-7xl font-extrabold tracking-tighter" style={{ color: 'var(--foreground)' }}>
                 {formatTemperature(current.temperature, unit)}
               </span>
             </div>
-            <div className="text-base sm:text-lg font-semibold text-slate-200 mt-1 flex items-center gap-2">
+            <div className="text-base sm:text-lg font-semibold mt-1 flex items-center gap-2" style={{ color: 'var(--foreground)' }}>
               <span>{current.condition}</span>
             </div>
-            <div className="text-xs sm:text-sm text-slate-400 mt-0.5 font-medium">
-              {t.feelsLike} <span className="text-slate-200 font-semibold">{formatTemperature(current.feelsLike, unit)}</span>
+            <div className="text-xs sm:text-sm mt-0.5 font-medium" style={{ color: 'var(--foreground-muted)' }}>
+              {t.feelsLike} <span className="font-semibold" style={{ color: 'var(--foreground)' }}>{formatTemperature(current.feelsLike, unit)}</span>
             </div>
           </div>
         </div>
 
         {/* Quick Highlights / High-Low */}
-        <div className="md:col-span-5 flex flex-col justify-center space-y-2 border-t md:border-t-0 md:border-l border-slate-800/80 pt-4 md:pt-0 md:pl-6">
+        <div 
+          className="md:col-span-5 flex flex-col justify-center space-y-2 border-t md:border-t-0 md:border-l pt-4 md:pt-0 md:pl-6"
+          style={{ borderColor: 'var(--border-subtle)' }}
+        >
           <div className="flex items-center justify-between text-xs sm:text-sm">
-            <span className="text-slate-400">Today&apos;s Range</span>
-            <span className="font-semibold text-slate-200">
+            <span style={{ color: 'var(--foreground-muted)' }}>Today&apos;s Range</span>
+            <span className="font-semibold" style={{ color: 'var(--foreground)' }}>
               {weather.daily[0] ? `${formatTemperature(weather.daily[0].temperatureMin, unit)} / ${formatTemperature(weather.daily[0].temperatureMax, unit)}` : '--'}
             </span>
           </div>
           <div className="flex items-center justify-between text-xs sm:text-sm">
-            <span className="text-slate-400">{t.rainProbability}</span>
-            <span className={`font-semibold ${weather.hourly[0]?.precipitationProbability > 40 ? 'text-cyan-400' : 'text-slate-200'}`}>
+            <span style={{ color: 'var(--foreground-muted)' }}>{t.rainProbability}</span>
+            <span className="font-semibold" style={{ color: weather.hourly[0]?.precipitationProbability > 40 ? 'var(--primary)' : 'var(--foreground)' }}>
               {weather.hourly[0]?.precipitationProbability ?? 0}%
             </span>
           </div>
           <div className="flex items-center justify-between text-xs sm:text-sm">
-            <span className="text-slate-400">Atmospheric Air</span>
+            <span style={{ color: 'var(--foreground-muted)' }}>Atmospheric Air</span>
             <span className="font-semibold text-emerald-400">
               {weather.airQuality ? `AQI ${weather.airQuality.aqi} • ${weather.airQuality.status}` : t.dataUnavailable}
             </span>
@@ -160,88 +180,109 @@ export function WeatherHero({
         </div>
       </div>
 
-      {/* Atmospheric Metrics Strip (8px spacing, clean modern glass cards) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 relative z-10 pt-4 border-t border-white/5">
+      {/* Atmospheric Metrics Strip */}
+      <div 
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 relative z-10 pt-4 border-t"
+        style={{ borderColor: 'var(--border-subtle)' }}
+      >
         {/* Wind */}
-        <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-white/10 transition-colors">
-          <div className="flex items-center gap-1.5 text-slate-400 text-xs mb-1">
-            <Wind className="w-3.5 h-3.5 text-primary-400" />
+        <div 
+          className="p-3 rounded-2xl border transition-colors hover:border-opacity-60"
+          style={{ background: 'var(--surface)', borderColor: 'var(--border-subtle)' }}
+        >
+          <div className="flex items-center gap-1.5 text-xs mb-1" style={{ color: 'var(--foreground-muted)' }}>
+            <Wind className="w-3.5 h-3.5" style={{ color: 'var(--primary)' }} />
             <span>{t.wind}</span>
           </div>
-          <div className="text-sm font-bold text-slate-100">
+          <div className="text-sm font-bold" style={{ color: 'var(--foreground)' }}>
             {formatWindSpeed(current.windSpeed, windUnit)}
           </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">
+          <div className="text-[10px] mt-0.5" style={{ color: 'var(--foreground-muted)' }}>
             Dir {current.windDirection}°
           </div>
         </div>
 
         {/* Humidity */}
-        <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-white/10 transition-colors">
-          <div className="flex items-center gap-1.5 text-slate-400 text-xs mb-1">
+        <div 
+          className="p-3 rounded-2xl border transition-colors hover:border-opacity-60"
+          style={{ background: 'var(--surface)', borderColor: 'var(--border-subtle)' }}
+        >
+          <div className="flex items-center gap-1.5 text-xs mb-1" style={{ color: 'var(--foreground-muted)' }}>
             <Droplets className="w-3.5 h-3.5 text-cyan-400" />
             <span>{t.humidity}</span>
           </div>
-          <div className="text-sm font-bold text-slate-100">
+          <div className="text-sm font-bold" style={{ color: 'var(--foreground)' }}>
             {current.humidity}%
           </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">
+          <div className="text-[10px] mt-0.5" style={{ color: 'var(--foreground-muted)' }}>
             {current.humidity > 70 ? 'High Moisture' : 'Comfortable'}
           </div>
         </div>
 
         {/* UV Index */}
-        <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-white/10 transition-colors">
-          <div className="flex items-center gap-1.5 text-slate-400 text-xs mb-1">
+        <div 
+          className="p-3 rounded-2xl border transition-colors hover:border-opacity-60"
+          style={{ background: 'var(--surface)', borderColor: 'var(--border-subtle)' }}
+        >
+          <div className="flex items-center gap-1.5 text-xs mb-1" style={{ color: 'var(--foreground-muted)' }}>
             <Sun className="w-3.5 h-3.5 text-amber-400" />
             <span>{t.uvIndex}</span>
           </div>
-          <div className="text-sm font-bold text-slate-100">
+          <div className="text-sm font-bold" style={{ color: 'var(--foreground)' }}>
             {current.uvIndex} / 12
           </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">
+          <div className="text-[10px] mt-0.5" style={{ color: 'var(--foreground-muted)' }}>
             {current.uvIndex >= 8 ? 'Very High' : current.uvIndex >= 6 ? 'High' : 'Moderate'}
           </div>
         </div>
 
         {/* Visibility */}
-        <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-white/10 transition-colors">
-          <div className="flex items-center gap-1.5 text-slate-400 text-xs mb-1">
+        <div 
+          className="p-3 rounded-2xl border transition-colors hover:border-opacity-60"
+          style={{ background: 'var(--surface)', borderColor: 'var(--border-subtle)' }}
+        >
+          <div className="flex items-center gap-1.5 text-xs mb-1" style={{ color: 'var(--foreground-muted)' }}>
             <Eye className="w-3.5 h-3.5 text-indigo-400" />
             <span>{t.visibility}</span>
           </div>
-          <div className="text-sm font-bold text-slate-100">
+          <div className="text-sm font-bold" style={{ color: 'var(--foreground)' }}>
             {current.visibility} km
           </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">
+          <div className="text-[10px] mt-0.5" style={{ color: 'var(--foreground-muted)' }}>
             {current.visibility >= 8 ? 'Clear View' : 'Haze/Fog'}
           </div>
         </div>
 
         {/* Pressure */}
-        <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-white/10 transition-colors">
-          <div className="flex items-center gap-1.5 text-slate-400 text-xs mb-1">
+        <div 
+          className="p-3 rounded-2xl border transition-colors hover:border-opacity-60"
+          style={{ background: 'var(--surface)', borderColor: 'var(--border-subtle)' }}
+        >
+          <div className="flex items-center gap-1.5 text-xs mb-1" style={{ color: 'var(--foreground-muted)' }}>
             <Gauge className="w-3.5 h-3.5 text-violet-400" />
             <span>{t.pressure}</span>
           </div>
-          <div className="text-sm font-bold text-slate-100">
+          <div className="text-sm font-bold" style={{ color: 'var(--foreground)' }}>
             {current.pressure} hPa
           </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">
+          <div className="text-[10px] mt-0.5" style={{ color: 'var(--foreground-muted)' }}>
             Barometric
           </div>
         </div>
 
         {/* Precipitation */}
-        <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-white/10 transition-colors">
-          <div className="flex items-center gap-1.5 text-slate-400 text-xs mb-1">
+        <div 
+          className="p-3 rounded-2xl border transition-colors hover:border-opacity-60"
+          style={{ background: 'var(--surface)', borderColor: 'var(--border-subtle)' }}
+        >
+          <div className="flex items-center gap-1.5 text-xs mb-1" style={{ color: 'var(--foreground-muted)' }}>
             <CloudRain className="w-3.5 h-3.5 text-cyan-400" />
             <span>Precipitation</span>
           </div>
-          <div className="text-sm font-bold text-slate-100">
+          <div className="text-sm font-bold" style={{ color: 'var(--foreground)' }}>
             {current.precipitation} mm
           </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">
+          <div className="text-[10px] mt-0.5" style={{ color: 'var(--foreground-muted)' }}>
             {current.precipitation > 0 ? 'Active Rain' : 'Dry Surface'}
           </div>
         </div>

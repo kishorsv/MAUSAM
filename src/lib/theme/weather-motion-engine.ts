@@ -5,7 +5,11 @@ export class WeatherMotionEngine {
   /**
    * Deterministically calculates the visual atmosphere state given live weather data and theme preference
    */
-  calculateVisualState(weather: WeatherPayload | null, themeId: ThemeId = 'living-weather'): WeatherVisualState {
+  calculateVisualState(
+    weather: WeatherPayload | null, 
+    themeId: ThemeId = 'midnight-ai',
+    mode: 'dark' | 'light' = 'dark'
+  ): WeatherVisualState {
     const hour = new Date().getHours();
     const isDay = weather ? weather.current.isDay : (hour >= 6 && hour < 19);
 
@@ -56,8 +60,139 @@ export class WeatherMotionEngine {
     const rainIntensity = Math.min(100, Math.max(0, precip > 0 ? Math.round(precip * 15) : rainProb));
     const windSpeedNormalized = Math.min(100, Math.round(((current?.windSpeed ?? 15) / 60) * 100));
 
+    // Determine weather particle override when active weather conditions exist
+    const isStorm = conditionKey === 'storm';
+    const isRain = conditionKey === 'rain';
+    const isSnow = conditionKey === 'snow';
+
     // 3. Assemble Visual State according to active Theme
     switch (themeId) {
+      // 1. MIDNIGHT AI
+      case 'midnight-ai':
+        return {
+          themeId: 'midnight-ai',
+          conditionKey,
+          particleType: isStorm ? 'lightning' : isRain ? 'rain' : isSnow ? 'snow' : 'aurora',
+          timeOfDay,
+          bgGradient: mode === 'dark' 
+            ? 'bg-gradient-to-b from-[#05070d] via-[#0b1020] to-[#04060a]'
+            : 'bg-gradient-to-b from-[#f0f6fc] via-[#e2e8f0] to-[#f8fafc]',
+          atmosphericGlow: mode === 'dark'
+            ? 'radial-gradient(circle at 50% -10%, rgba(56, 189, 248, 0.25) 0%, rgba(139, 92, 246, 0.20) 40%, transparent 80%)'
+            : 'radial-gradient(circle at 50% -10%, rgba(2, 132, 199, 0.15) 0%, rgba(124, 58, 237, 0.12) 40%, transparent 80%)',
+          accentColor: '#38bdf8',
+          glassPanelClass: mode === 'dark'
+            ? 'bg-[#0b1020]/75 backdrop-blur-2xl border-cyan-500/25 shadow-glow-primary'
+            : 'bg-white/80 backdrop-blur-xl border-cyan-500/20 shadow-lg',
+          glassBorderClass: 'border-cyan-500/35',
+          heroHeadline: isStorm ? 'Thunderstorm Convective AI' : isRain ? 'Precipitation Neural Stream' : 'Midnight AI Intelligence',
+          atmosphereNote: 'Atmospheric ionosphere energized with electric cyan & violet neural data lines.',
+          enableLightning: isStorm,
+          rainIntensity,
+          windSpeedNormalized
+        };
+
+      // 2. ARCTIC
+      case 'arctic':
+        return {
+          themeId: 'arctic',
+          conditionKey,
+          particleType: isStorm ? 'lightning' : isRain ? 'rain' : 'snow',
+          timeOfDay,
+          bgGradient: mode === 'dark'
+            ? 'bg-gradient-to-b from-[#06131f] via-[#0b2535] to-[#040d16]'
+            : 'bg-gradient-to-b from-[#eaf8ff] via-[#dff6ff] to-[#bae6fd]',
+          atmosphericGlow: mode === 'dark'
+            ? 'radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.28) 0%, rgba(186, 230, 253, 0.15) 50%, transparent 80%)'
+            : 'radial-gradient(circle at 50% 0%, rgba(14, 165, 233, 0.18) 0%, rgba(186, 230, 253, 0.22) 50%, transparent 80%)',
+          accentColor: '#38bdf8',
+          glassPanelClass: mode === 'dark'
+            ? 'bg-[#0b2535]/75 backdrop-blur-2xl border-sky-400/25'
+            : 'bg-white/85 backdrop-blur-xl border-sky-400/20 shadow-md',
+          glassBorderClass: 'border-sky-300/35',
+          heroHeadline: isSnow ? 'Sub-Zero Arctic Snow Flurry' : 'Arctic Crystal Intelligence',
+          atmosphereNote: 'Sub-zero frosted crystal surfaces with serene falling ice particles and high thermal clarity.',
+          enableLightning: isStorm,
+          rainIntensity,
+          windSpeedNormalized
+        };
+
+      // 3. EMERALD
+      case 'emerald':
+        return {
+          themeId: 'emerald',
+          conditionKey,
+          particleType: isStorm ? 'lightning' : isRain ? 'rain' : isSnow ? 'snow' : 'leaves',
+          timeOfDay,
+          bgGradient: mode === 'dark'
+            ? 'bg-gradient-to-b from-[#02130e] via-[#06281e] to-[#010c09]'
+            : 'bg-gradient-to-b from-[#f0fdf4] via-[#dcfce7] to-[#bbf7d0]',
+          atmosphericGlow: mode === 'dark'
+            ? 'radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.25) 0%, rgba(52, 211, 153, 0.15) 55%, transparent 80%)'
+            : 'radial-gradient(circle at 50% 0%, rgba(5, 150, 105, 0.18) 0%, rgba(52, 211, 153, 0.14) 55%, transparent 80%)',
+          accentColor: '#10b981',
+          glassPanelClass: mode === 'dark'
+            ? 'bg-[#06281e]/75 backdrop-blur-2xl border-emerald-500/25'
+            : 'bg-white/85 backdrop-blur-xl border-emerald-500/20 shadow-md',
+          glassBorderClass: 'border-emerald-400/35',
+          heroHeadline: isRain ? 'Monsoon Biosphere Regeneration' : 'Emerald Biosphere Intelligence',
+          atmosphereNote: 'Living chlorophyll atmosphere tuned for agricultural health, clean oxygen, and nature living.',
+          enableLightning: isStorm,
+          rainIntensity,
+          windSpeedNormalized
+        };
+
+      // 4. VIOLET COSMOS
+      case 'violet-cosmos':
+        return {
+          themeId: 'violet-cosmos',
+          conditionKey,
+          particleType: isStorm ? 'lightning' : isRain ? 'rain' : 'cosmic',
+          timeOfDay,
+          bgGradient: mode === 'dark'
+            ? 'bg-gradient-to-b from-[#080512] via-[#120a24] to-[#05030b]'
+            : 'bg-gradient-to-b from-[#faf5ff] via-[#f3e8ff] to-[#e9d5ff]',
+          atmosphericGlow: mode === 'dark'
+            ? 'radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.3) 0%, rgba(217, 70, 239, 0.18) 50%, transparent 80%)'
+            : 'radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.16) 0%, rgba(217, 70, 239, 0.12) 50%, transparent 80%)',
+          accentColor: '#8b5cf6',
+          glassPanelClass: mode === 'dark'
+            ? 'bg-[#120a24]/75 backdrop-blur-2xl border-purple-500/25'
+            : 'bg-white/85 backdrop-blur-xl border-purple-500/20 shadow-md',
+          glassBorderClass: 'border-purple-400/35',
+          heroHeadline: isStorm ? 'Cosmic Ion Discharge' : 'Violet Cosmos Intelligence',
+          atmosphereNote: 'Deep orbital telemetry with galactic nebula dust, stellar observations, and satellite arrays.',
+          enableLightning: isStorm,
+          rainIntensity,
+          windSpeedNormalized
+        };
+
+      // 5. SUNSET
+      case 'sunset':
+        return {
+          themeId: 'sunset',
+          conditionKey,
+          particleType: isStorm ? 'lightning' : isRain ? 'rain' : 'embers',
+          timeOfDay,
+          bgGradient: mode === 'dark'
+            ? 'bg-gradient-to-b from-[#180a08] via-[#32100b] to-[#0f0605]'
+            : 'bg-gradient-to-b from-[#fff7ed] via-[#ffedd5] to-[#fed7aa]',
+          atmosphericGlow: mode === 'dark'
+            ? 'radial-gradient(circle at 50% 0%, rgba(234, 88, 12, 0.3) 0%, rgba(251, 113, 133, 0.2) 50%, transparent 80%)'
+            : 'radial-gradient(circle at 50% 0%, rgba(194, 65, 12, 0.18) 0%, rgba(251, 113, 133, 0.14) 50%, transparent 80%)',
+          accentColor: '#ea580c',
+          glassPanelClass: mode === 'dark'
+            ? 'bg-[#32100b]/75 backdrop-blur-2xl border-orange-500/25'
+            : 'bg-white/85 backdrop-blur-xl border-orange-500/20 shadow-md',
+          glassBorderClass: 'border-orange-400/35',
+          heroHeadline: 'Sunset Horizon Intelligence',
+          atmosphereNote: 'Warm golden hour atmospheric scattering with radiant dusk illumination and gentle thermals.',
+          enableLightning: isStorm,
+          rainIntensity,
+          windSpeedNormalized
+        };
+
+      // LEGACY: AURORA
       case 'aurora':
         return {
           themeId: 'aurora',
@@ -76,6 +211,7 @@ export class WeatherMotionEngine {
           windSpeedNormalized
         };
 
+      // LEGACY: EARTH
       case 'earth':
         return {
           themeId: 'earth',
@@ -94,6 +230,7 @@ export class WeatherMotionEngine {
           windSpeedNormalized
         };
 
+      // LEGACY: NATURE
       case 'nature':
         return {
           themeId: 'nature',
@@ -114,6 +251,7 @@ export class WeatherMotionEngine {
           windSpeedNormalized
         };
 
+      // LEGACY: GLASS
       case 'glass':
         return {
           themeId: 'glass',
@@ -132,9 +270,9 @@ export class WeatherMotionEngine {
           windSpeedNormalized
         };
 
+      // LEGACY: LIVING WEATHER
       case 'living-weather':
       default:
-        // Living weather reacts directly to the exact weather condition
         switch (conditionKey) {
           case 'storm':
             return {

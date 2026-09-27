@@ -1,4 +1,19 @@
-export type ThemeId = 'aurora' | 'living-weather' | 'earth' | 'nature' | 'glass';
+export type ThemeId = 
+  | 'midnight-ai' 
+  | 'arctic' 
+  | 'emerald' 
+  | 'violet-cosmos' 
+  | 'sunset'
+  // Legacy aliases for backward compatibility with tests & earlier builds
+  | 'aurora' 
+  | 'living-weather' 
+  | 'earth' 
+  | 'nature' 
+  | 'glass';
+
+export type ThemeMode = 'dark' | 'light' | 'auto';
+export type MotionPreference = 'full' | 'reduced' | 'auto';
+export type WeatherEffectsPreference = 'enabled' | 'disabled' | 'auto';
 
 export type WeatherConditionKey = 
   | 'clear-day' 
@@ -20,7 +35,35 @@ export type ParticleType =
   | 'fog' 
   | 'snow' 
   | 'aurora' 
-  | 'satellite-grid';
+  | 'satellite-grid'
+  | 'leaves'
+  | 'embers'
+  | 'cosmic';
+
+export interface ThemeTokens {
+  background: string;
+  backgroundSecondary: string;
+  surface: string;
+  surfaceElevated: string;
+  surfaceGlass: string;
+  foreground: string;
+  foregroundMuted: string;
+  primary: string;
+  primaryHover: string;
+  secondary: string;
+  accent: string;
+  border: string;
+  borderSubtle: string;
+  shadow: string;
+  glow: string;
+  success: string;
+  warning: string;
+  danger: string;
+  info: string;
+  chartPrimary: string;
+  chartSecondary: string;
+  mapAccent: string;
+}
 
 export interface ThemeConfig {
   id: ThemeId;
@@ -31,6 +74,7 @@ export interface ThemeConfig {
   description: string;
   accentColor: string;
   primaryGlow: string;
+  previewColors: string[];
 }
 
 export interface WeatherVisualState {
@@ -52,6 +96,64 @@ export interface WeatherVisualState {
 
 export const AVAILABLE_THEMES: ThemeConfig[] = [
   {
+    id: 'midnight-ai',
+    name: 'Midnight AI',
+    tagline: 'AI & Futuristic Intelligence',
+    icon: '🌌',
+    badge: 'AI Futuristic',
+    description: 'Dark cyber-glass surfaces, electric cyan pulses, subtle purple neural glow, and hyper-predictive data stream aesthetics.',
+    accentColor: '#38bdf8',
+    primaryGlow: 'rgba(56, 189, 248, 0.35)',
+    previewColors: ['#05070d', '#0b1020', '#38bdf8', '#8b5cf6']
+  },
+  {
+    id: 'arctic',
+    name: 'Arctic',
+    tagline: 'Cold, Clean & Crystal-Clear',
+    icon: '❄️',
+    badge: 'Crystal Pure',
+    description: 'Sub-zero frosted glass, crystalline borders, crisp cyan precision highlights, and serene falling snow atmosphere.',
+    accentColor: '#38bdf8',
+    primaryGlow: 'rgba(56, 189, 248, 0.4)',
+    previewColors: ['#06131f', '#0b2535', '#38bdf8', '#bae6fd']
+  },
+  {
+    id: 'emerald',
+    name: 'Emerald',
+    tagline: 'Biosphere, Nature & Agriculture',
+    icon: '🌿',
+    badge: 'Biosphere',
+    description: 'Deep rainforest glass, organic chlorophyll greens, gentle ambient spores, and soil-nourishing environmental intelligence.',
+    accentColor: '#10b981',
+    primaryGlow: 'rgba(16, 185, 129, 0.35)',
+    previewColors: ['#02130e', '#06281e', '#10b981', '#34d399']
+  },
+  {
+    id: 'violet-cosmos',
+    name: 'Violet Cosmos',
+    tagline: 'Space, Orbital & Satellite Deep Space',
+    icon: '🟣',
+    badge: 'Orbital Space',
+    description: 'Deep cosmic void, galactic nebula dust, orbital telemetry sweeps, and luminous ultraviolet stellar intelligence.',
+    accentColor: '#8b5cf6',
+    primaryGlow: 'rgba(139, 92, 246, 0.4)',
+    previewColors: ['#080512', '#120a24', '#7c3aed', '#d946ef']
+  },
+  {
+    id: 'sunset',
+    name: 'Sunset',
+    tagline: 'Warm Atmospheric Golden Horizon',
+    icon: '🌅',
+    badge: 'Cinematic Warmth',
+    description: 'Cinematic golden hour gradients, peach & amber atmospheric scattering, warm ember motes, and soft glowing dusk.',
+    accentColor: '#ea580c',
+    primaryGlow: 'rgba(234, 88, 12, 0.4)',
+    previewColors: ['#180a08', '#32100b', '#ea580c', '#fbbf24']
+  }
+];
+
+export const LEGACY_THEMES: ThemeConfig[] = [
+  {
     id: 'living-weather',
     name: 'Living Weather',
     tagline: 'Environmentally Reactive Atmosphere',
@@ -59,7 +161,8 @@ export const AVAILABLE_THEMES: ThemeConfig[] = [
     badge: 'Dynamic Real-time',
     description: 'Interface dynamically morphs colors, particles, and lighting to match real-time weather conditions.',
     accentColor: '#38bdf8',
-    primaryGlow: 'rgba(56, 189, 248, 0.25)'
+    primaryGlow: 'rgba(56, 189, 248, 0.25)',
+    previewColors: ['#030e1c', '#061933', '#38bdf8', '#818cf8']
   },
   {
     id: 'aurora',
@@ -69,7 +172,8 @@ export const AVAILABLE_THEMES: ThemeConfig[] = [
     badge: 'AI Futuristic',
     description: 'Deep cosmic space gradients with electric cyan & violet aurora waves, glowing data lines, and floating motes.',
     accentColor: '#22d3ee',
-    primaryGlow: 'rgba(34, 211, 238, 0.3)'
+    primaryGlow: 'rgba(34, 211, 238, 0.3)',
+    previewColors: ['#050816', '#0b1329', '#22d3ee', '#8b5cf6']
   },
   {
     id: 'earth',
@@ -79,7 +183,8 @@ export const AVAILABLE_THEMES: ThemeConfig[] = [
     badge: 'Command Center',
     description: 'Orbital telemetry, satellite observation sweeps, radar grid overlays, and geospatial data lines.',
     accentColor: '#10b981',
-    primaryGlow: 'rgba(16, 185, 129, 0.25)'
+    primaryGlow: 'rgba(16, 185, 129, 0.25)',
+    previewColors: ['#030712', '#05111e', '#10b981', '#06b6d4']
   },
   {
     id: 'nature',
@@ -89,7 +194,8 @@ export const AVAILABLE_THEMES: ThemeConfig[] = [
     badge: 'Organic Calm',
     description: 'Soft sunlight gradients, gentle breeze particles, horizon transitions, and warm human-centric typography.',
     accentColor: '#34d399',
-    primaryGlow: 'rgba(52, 211, 153, 0.25)'
+    primaryGlow: 'rgba(52, 211, 153, 0.25)',
+    previewColors: ['#041d1a', '#072522', '#34d399', '#10b981']
   },
   {
     id: 'glass',
@@ -99,6 +205,9 @@ export const AVAILABLE_THEMES: ThemeConfig[] = [
     badge: 'Spatial Glass',
     description: 'Ultra-modern frosted translucent surfaces, specular edge reflections, deep blurs, and bold clean numbers.',
     accentColor: '#e2e8f0',
-    primaryGlow: 'rgba(255, 255, 255, 0.2)'
+    primaryGlow: 'rgba(255, 255, 255, 0.2)',
+    previewColors: ['#090d16', '#0f172a', '#e2e8f0', '#94a3b8']
   }
 ];
+
+export const ALL_THEMES: ThemeConfig[] = [...AVAILABLE_THEMES, ...LEGACY_THEMES];

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Sparkles, X, Send, Bot, User, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { WeatherPayload } from '@/lib/weather/types';
 import { AIResponsePayload } from '@/lib/ai/gemini';
+import { useTheme } from '@/components/theme/ThemeContext';
 
 interface AIChatDrawerProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ interface Message {
 }
 
 export function AIChatDrawer({ isOpen, onClose, weather }: AIChatDrawerProps) {
+  const { theme, tokens } = useTheme();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
@@ -93,31 +95,51 @@ export function AIChatDrawer({ isOpen, onClose, weather }: AIChatDrawerProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-[480px] glass-panel border-l border-slate-800 bg-slate-950/95 backdrop-blur-2xl shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+    <div 
+      className="fixed inset-y-0 right-0 z-50 w-full sm:w-[480px] border-l shadow-2xl flex flex-col animate-in slide-in-from-right duration-300 backdrop-blur-2xl"
+      style={{
+        background: 'var(--surface-glass)',
+        borderColor: 'var(--border)',
+        boxShadow: 'var(--shadow)'
+      }}
+    >
       {/* Header */}
-      <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between">
+      <div className="p-4 sm:p-5 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-violet-600 to-primary-500 p-[1px] shadow-glow-primary">
-            <div className="w-full h-full rounded-[15px] bg-slate-950 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-violet-400 animate-pulse" />
-            </div>
+          <div 
+            className="w-9 h-9 rounded-2xl flex items-center justify-center shadow-sm"
+            style={{ 
+              background: 'var(--primary)', 
+              color: '#ffffff',
+              boxShadow: 'var(--glow)' 
+            }}
+          >
+            <Sparkles className="w-4 h-4 animate-pulse" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
+            <h3 className="text-base font-bold flex items-center gap-2" style={{ color: 'var(--foreground)' }}>
               Mausam AI
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20">
-                Ground-Truth AI
+              <span 
+                className="text-[10px] font-semibold px-2 py-0.5 rounded-full border"
+                style={{ 
+                  background: 'var(--border-subtle)', 
+                  color: 'var(--primary)',
+                  borderColor: 'var(--border)' 
+                }}
+              >
+                Grounded AI
               </span>
             </h3>
-            <p className="text-[11px] text-slate-400">
-              Grounded in live telemetry for {weather.location.name}
+            <p className="text-[11px]" style={{ color: 'var(--foreground-muted)' }}>
+              Telemetry grounded for {weather.location.name}
             </p>
           </div>
         </div>
 
         <button
           onClick={onClose}
-          className="p-1.5 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
+          className="p-1.5 rounded-xl transition-colors hover:opacity-80"
+          style={{ background: 'var(--surface)', color: 'var(--foreground-muted)', border: '1px solid var(--border-subtle)' }}
         >
           <X className="w-5 h-5" />
         </button>
@@ -133,65 +155,63 @@ export function AIChatDrawer({ isOpen, onClose, weather }: AIChatDrawerProps) {
             <div
               className={`max-w-[90%] rounded-2xl p-4 text-xs sm:text-sm leading-relaxed ${
                 msg.sender === 'user'
-                  ? 'bg-primary-600 text-white font-medium rounded-tr-none shadow-glow-primary'
-                  : 'bg-slate-900/95 text-slate-200 border border-violet-500/30 shadow-[0_0_24px_-4px_rgba(139,92,246,0.25)] rounded-tl-none'
+                  ? 'rounded-tr-none font-medium'
+                  : 'rounded-tl-none border shadow-md'
               }`}
+              style={{
+                background: msg.sender === 'user' ? 'var(--primary)' : 'var(--surface)',
+                color: msg.sender === 'user' ? '#ffffff' : 'var(--foreground)',
+                borderColor: msg.sender === 'user' ? 'transparent' : 'var(--border-subtle)',
+                boxShadow: msg.sender === 'user' ? 'var(--glow)' : 'none'
+              }}
             >
-              {/* If it's an AI response with grounded telemetry, display clearly separated sections */}
+              {/* Grounded telemetry overview if available */}
               {msg.data && (
-                <div className="mb-3 p-3 rounded-xl bg-violet-950/20 border border-violet-500/20 space-y-1.5 text-[11px] text-slate-300">
-                  <div className="text-[10px] uppercase font-bold text-violet-400 tracking-wider flex items-center gap-1.5">
-                    <Sparkles className="w-3 h-3 text-amber-300 animate-pulse" />
+                <div 
+                  className="mb-3 p-3 rounded-xl border space-y-1.5 text-[11px]"
+                  style={{ 
+                    background: 'var(--border-subtle)', 
+                    borderColor: 'var(--border)',
+                    color: 'var(--foreground)'
+                  }}
+                >
+                  <div className="text-[10px] uppercase font-bold tracking-wider flex items-center gap-1.5" style={{ color: 'var(--primary)' }}>
+                    <Sparkles className="w-3 h-3 animate-pulse" />
                     <span>[Observed Weather Data]</span>
                   </div>
                   <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
-                    <div>Temp: <span className="font-semibold text-white">{msg.data.observedWeather.temperature}</span></div>
-                    <div>Rain: <span className="font-semibold text-white">{msg.data.observedWeather.rainProbability}</span></div>
-                    <div>Wind: <span className="font-semibold text-white">{msg.data.observedWeather.windSpeed}</span></div>
-                    <div>UV: <span className="font-semibold text-white">{msg.data.observedWeather.uvIndex}</span></div>
+                    <div>Temp: <span className="font-semibold">{msg.data.observedWeather.temperature}</span></div>
+                    <div>Rain: <span className="font-semibold">{msg.data.observedWeather.rainProbability}</span></div>
+                    <div>Wind: <span className="font-semibold">{msg.data.observedWeather.windSpeed}</span></div>
+                    <div>AQI: <span className="font-semibold">{msg.data.observedWeather.aqi}</span></div>
                   </div>
                 </div>
               )}
 
-              {/* Recommendation Content */}
-              <div>{msg.text}</div>
-
-              {/* Action items if returned */}
-              {msg.data && msg.data.actionItems && msg.data.actionItems.length > 0 && (
-                <div className="mt-3 pt-2.5 border-t border-slate-800/80 space-y-1">
-                  <div className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">
-                    Recommended Actions:
-                  </div>
-                  {msg.data.actionItems.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-1.5 text-[11px] text-slate-300">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                      <span>{item}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {msg.data && (
-                <div className="mt-2 text-[10px] text-slate-500 font-mono text-right">
-                  Powered by {msg.data.poweredBy}
-                </div>
-              )}
+              <div className="whitespace-pre-wrap">{msg.text}</div>
             </div>
-            <span className="text-[10px] text-slate-500 mt-1 px-1">{msg.timestamp}</span>
+            <span className="text-[10px] mt-1 px-1" style={{ color: 'var(--foreground-muted)' }}>{msg.timestamp}</span>
           </div>
         ))}
 
         {loading && (
-          <div className="flex items-center gap-2 p-3.5 rounded-2xl bg-violet-950/20 border border-violet-500/30 text-xs text-violet-300 animate-pulse">
-            <Loader2 className="w-4 h-4 text-violet-400 animate-spin" />
+          <div 
+            className="flex items-center gap-2 p-3.5 rounded-2xl border text-xs animate-pulse"
+            style={{ 
+              background: 'var(--surface)', 
+              borderColor: 'var(--border)',
+              color: 'var(--primary)' 
+            }}
+          >
+            <Loader2 className="w-4 h-4 animate-spin" />
             Synthesizing grounded real-time meteorological variables...
           </div>
         )}
       </div>
 
       {/* Suggested Questions Pills */}
-      <div className="p-3 border-t border-slate-800/60 bg-slate-900/40">
-        <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
+      <div className="p-3 border-t" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface)' }}>
+        <div className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--foreground-muted)' }}>
           Suggested queries:
         </div>
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
@@ -200,7 +220,12 @@ export function AIChatDrawer({ isOpen, onClose, weather }: AIChatDrawerProps) {
               key={idx}
               onClick={() => handleSend(q)}
               disabled={loading}
-              className="whitespace-nowrap px-3 py-1.5 rounded-full bg-violet-950/30 hover:bg-violet-900/40 border border-violet-500/30 hover:border-violet-400 text-violet-300 text-xs font-medium transition-all shadow-sm shrink-0 disabled:opacity-50"
+              className="whitespace-nowrap px-3 py-1.5 rounded-full border text-xs font-medium transition-all shadow-sm shrink-0 disabled:opacity-50"
+              style={{
+                background: 'var(--border-subtle)',
+                borderColor: 'var(--border)',
+                color: 'var(--foreground)'
+              }}
             >
               {q}
             </button>
@@ -209,7 +234,7 @@ export function AIChatDrawer({ isOpen, onClose, weather }: AIChatDrawerProps) {
       </div>
 
       {/* Input Field */}
-      <div className="p-4 border-t border-slate-800 bg-slate-950">
+      <div className="p-4 border-t" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-glass)' }}>
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -222,12 +247,21 @@ export function AIChatDrawer({ isOpen, onClose, weather }: AIChatDrawerProps) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask Mausam AI about running, rain, packing..."
-            className="flex-1 px-4 py-3 rounded-2xl bg-slate-900 border border-slate-800 text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+            className="flex-1 px-4 py-3 rounded-2xl border text-xs sm:text-sm focus:outline-none transition-colors"
+            style={{
+              background: 'var(--surface)',
+              borderColor: 'var(--border-subtle)',
+              color: 'var(--foreground)'
+            }}
           />
           <button
             type="submit"
             disabled={!input.trim() || loading}
-            className="p-3 rounded-2xl bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white font-medium transition-all shadow-glow-primary shrink-0"
+            className="p-3 rounded-2xl text-white font-medium transition-all shadow-md shrink-0 disabled:opacity-50"
+            style={{
+              background: 'var(--primary)',
+              boxShadow: 'var(--glow)'
+            }}
           >
             <Send className="w-4 h-4" />
           </button>

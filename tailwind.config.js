@@ -10,7 +10,12 @@ module.exports = {
     extend: {
       colors: {
         background: 'var(--background)',
+        'background-secondary': 'var(--background-secondary)',
+        surface: 'var(--surface)',
+        'surface-elevated': 'var(--surface-elevated)',
+        'surface-glass': 'var(--surface-glass)',
         foreground: 'var(--foreground)',
+        'foreground-muted': 'var(--foreground-muted)',
         card: {
           DEFAULT: 'var(--card)',
           foreground: 'var(--card-foreground)',
@@ -27,10 +32,13 @@ module.exports = {
           700: '#075985',
           800: '#0c4a6e',
           900: '#082f49',
-          DEFAULT: '#0284c7',
+          DEFAULT: 'var(--primary)',
+          hover: 'var(--primary-hover)',
           foreground: '#ffffff',
         },
+        secondary: 'var(--secondary)',
         accent: {
+          DEFAULT: 'var(--accent)',
           emerald: '#10b981',
           amber: '#f59e0b',
           rose: '#f43f5e',
@@ -38,6 +46,8 @@ module.exports = {
           cyan: '#06b6d4',
           violet: '#8b5cf6',
         },
+        border: 'var(--border)',
+        'border-subtle': 'var(--border-subtle)',
         weather: {
           sun: '#f59e0b',
           rain: '#38bdf8',
@@ -54,7 +64,7 @@ module.exports = {
       boxShadow: {
         'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.08)',
         'glass-hover': '0 12px 40px 0 rgba(0, 0, 0, 0.14)',
-        'glow-primary': '0 0 24px -4px rgba(2, 132, 199, 0.35)',
+        'glow-primary': 'var(--glow)',
         'glow-amber': '0 0 24px -4px rgba(245, 158, 11, 0.35)',
         'glow-rose': '0 0 24px -4px rgba(244, 63, 94, 0.35)',
       },

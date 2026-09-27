@@ -296,7 +296,10 @@ export default function HomePage() {
   ];
 
   return (
-    <div className="min-h-screen text-slate-100 flex flex-col pb-20 sm:pb-12 relative overflow-x-hidden">
+    <div 
+      className="min-h-screen flex flex-col pb-20 sm:pb-12 relative overflow-x-hidden transition-colors duration-500"
+      style={{ color: 'var(--foreground)' }}
+    >
       {/* Living Atmospheric Dynamic Background Environment */}
       <LivingWeatherBackground visualState={visualState} />
 
@@ -317,10 +320,13 @@ export default function HomePage() {
       {/* Main Content Dashboard */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
         {/* Lifestyle Persona Dynamic Toggles Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-3xl glass-panel border border-white/5">
+        <div 
+          className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-3xl glass-panel border"
+          style={{ borderColor: 'var(--border)' }}
+        >
           <div className="flex items-center gap-2">
-            <SlidersHorizontal className="w-4 h-4 text-primary-400" />
-            <span className="text-xs font-bold text-slate-200">
+            <SlidersHorizontal className="w-4 h-4" style={{ color: 'var(--primary)' }} />
+            <span className="text-xs font-bold" style={{ color: 'var(--foreground)' }}>
               Personalized Lifestyle Engine:
             </span>
           </div>
