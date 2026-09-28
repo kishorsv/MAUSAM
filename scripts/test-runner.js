@@ -871,6 +871,52 @@ runTest('Hourly Forecast Validation: Catches mismatched array lengths without cr
   assert.strictEqual(res.success, true);
 });
 
+// 18. Google Maps Satellite View, Singleton Loader & Diagnostics Tests
+const { 
+  maskGoogleMapsApiKey, 
+  resolveMapTypeId, 
+  getGoogleMapsDiagnostics 
+} = require('../src/lib/maps/google-maps-loader.ts');
+
+runTest('Google Maps Satellite View: Resolves all MapTypeIds accurately (SATELLITE, ROADMAP, HYBRID, TERRAIN)', () => {
+  const mockG = {
+    MapTypeId: {
+      ROADMAP: 'roadmap_type_id',
+      SATELLITE: 'satellite_type_id',
+      HYBRID: 'hybrid_type_id',
+      TERRAIN: 'terrain_type_id'
+    }
+  };
+
+  assert.strictEqual(resolveMapTypeId('satellite', mockG), 'satellite_type_id');
+  assert.strictEqual(resolveMapTypeId('roadmap', mockG), 'roadmap_type_id');
+  assert.strictEqual(resolveMapTypeId('hybrid', mockG), 'hybrid_type_id');
+  assert.strictEqual(resolveMapTypeId('terrain', mockG), 'terrain_type_id');
+
+  // String fallback if google object is pending
+  assert.strictEqual(resolveMapTypeId('satellite', null), 'satellite');
+});
+
+runTest('Google Maps Security: Masks API keys to prevent leaking secrets', () => {
+  assert.strictEqual(maskGoogleMapsApiKey(''), '[NOT CONFIGURED]');
+  assert.strictEqual(maskGoogleMapsApiKey(null), '[NOT CONFIGURED]');
+  
+  const testKey = 'AIzaSyBN1234567890abcdefghijklmnXYZ';
+  const masked = maskGoogleMapsApiKey(testKey);
+  assert.strictEqual(masked.startsWith('AIzaSy'), true);
+  assert.strictEqual(masked.endsWith('nXYZ'), true);
+  assert.ok(masked.includes('...'));
+  assert.notStrictEqual(masked, testKey);
+});
+
+runTest('Google Maps Diagnostics: Correctly identifies diagnostic states without crashing', () => {
+  const diagNotReady = getGoogleMapsDiagnostics(false, 'satellite');
+  assert.ok(['GOOGLE_MAPS_SUCCESS', 'GOOGLE_MAPS_API_KEY_MISSING', 'GOOGLE_MAP_NOT_READY'].includes(diagNotReady.code));
+  assert.strictEqual(diagNotReady.activeMapType, 'satellite');
+  assert.ok(typeof diagNotReady.resolutionHint === 'string');
+  assert.ok(diagNotReady.resolutionHint.length > 0);
+});
+
 console.log('\n====================================================');
 console.log(`TEST RESULTS: ${passedTests} PASSED, ${failedTests} FAILED`);
 console.log('====================================================');

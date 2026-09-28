@@ -2,12 +2,18 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Layers, ArrowLeft, Wind, Eye, Compass, ShieldAlert, Sparkles, Clock, Globe } from 'lucide-react';
+import { Layers, ArrowLeft, Wind, Eye, Compass, ShieldAlert, Sparkles, Clock, Globe, Orbit } from 'lucide-react';
 import { Header } from '@/components/navigation/Header';
 import { MobileBottomNav } from '@/components/navigation/MobileBottomNav';
+import { WeatherMapComponent } from '@/components/map/WeatherMapComponent';
+import { MapLoadingSkeleton } from '@/components/common/LoadingSkeleton';
+import { useLocation } from '@/components/location/LocationContext';
+import { useWeather } from '@/components/weather/WeatherContext';
 import { SatelliteLayerInfo } from '@/lib/providers/contracts';
 
 export default function SatellitePage() {
+  const { currentLocation, setManualLocation } = useLocation();
+  const { weather, status } = useWeather();
   const [layers, setLayers] = useState<SatelliteLayerInfo[]>([]);
   const [activeLayerId, setActiveLayerId] = useState<string>('cloud-infrared');
   const [cloudMovement, setCloudMovement] = useState<string>('Moving northeast at 18 km/h');
@@ -15,8 +21,11 @@ export default function SatellitePage() {
   const [lastUpdated, setLastUpdated] = useState<string>('15 minutes ago');
   const [loading, setLoading] = useState(true);
 
+  const lat = currentLocation.latitude || 12.9716;
+  const lon = currentLocation.longitude || 77.5946;
+
   useEffect(() => {
-    fetch('/api/satellite?lat=12.9716&lon=77.5946')
+    fetch(`/api/satellite?lat=${lat}&lon=${lon}`)
       .then(res => res.json())
       .then(data => {
         if (data.success) {
@@ -28,14 +37,21 @@ export default function SatellitePage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [lat, lon]);
 
   const activeLayer = layers.find(l => l.layerId === activeLayerId) || layers[0];
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col pb-20 sm:pb-12">
       <Header
-        isLive={true}
+        currentLocation={{
+          name: currentLocation.city,
+          region: currentLocation.locality || currentLocation.state,
+          country: currentLocation.country || '',
+          lat: currentLocation.latitude,
+          lon: currentLocation.longitude
+        }}
+        isLive={status === 'READY'}
         language="en"
         onLanguageChange={() => {}}
         onOpenSearch={() => {}}
@@ -50,17 +66,17 @@ export default function SatellitePage() {
             </Link>
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
-                <Globe className="w-5 h-5 text-indigo-400" />
-                Satellite Earth Observation Intelligence
+                <Orbit className="w-5 h-5 text-indigo-400" />
+                <span>Satellite Earth Observation & Real Google Satellite Map</span>
               </h1>
               <p className="text-xs text-slate-400">
-                Geostationary infrared thermal cloud composites and synoptic scale storm tracking
+                Synchronized Google Satellite surface view, geostationary infrared telemetry and synoptic atmospheric tracking
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2 text-xs text-slate-400 font-mono">
-            <span>Source: EUMETSAT / NOAA / NASA GIBS</span>
+            <span>Source: Google Maps & EUMETSAT/NOAA</span>
             <span>•</span>
             <span className="text-emerald-400">Scan fresh: {lastUpdated}</span>
           </div>
@@ -94,39 +110,46 @@ export default function SatellitePage() {
           ))}
         </div>
 
-        {/* Satellite Imagery Canvas */}
-        <div className="relative w-full h-[450px] sm:h-[550px] rounded-3xl bg-slate-950 border border-slate-800 overflow-hidden flex items-center justify-center shadow-2xl">
-          {/* Earth Grid Mask */}
-          <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#818cf8_1px,transparent_1px)] [background-size:32px_32px]" />
+        {/* REAL Google Satellite Map */}
+        {status === 'LOADING' && !weather ? (
+          <MapLoadingSkeleton />
+        ) : weather ? (
+          <WeatherMapComponent
+            weather={weather}
+            initialMapType="satellite"
+            externalMapType="satellite"
+            onSelectLocation={(loc) => {
+              setManualLocation({
+                latitude: loc.lat,
+                longitude: loc.lon,
+                city: loc.name,
+                country: loc.country || '',
+                source: 'search'
+              });
+            }}
+          />
+        ) : null}
 
-          {/* Cloud Cover Simulation Mesh from real telemetry */}
-          <div className="relative z-10 text-center space-y-3 p-6 glass-panel rounded-3xl border border-indigo-500/30 max-w-md shadow-glow-primary">
-            <div className="flex items-center justify-center gap-2 text-xs font-bold text-indigo-300">
-              <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
-              <span>SATELLITE COMPOSITE LAYER</span>
+        {/* Atmospheric Observation Telemetry Card */}
+        {activeLayer && (
+          <div className="p-5 rounded-3xl glass-panel border border-indigo-500/20 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-slate-300">
+            <div className="space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400">Atmospheric Layer</span>
+              <p className="font-semibold text-white text-sm">{activeLayer.name}</p>
+              <p className="text-slate-400 text-[11px] leading-relaxed">{activeLayer.description}</p>
             </div>
-            <div className="text-2xl font-bold text-white tracking-tight">
-              {activeLayer?.name || 'Infrared Cloud Temperature'}
+            <div className="space-y-1 font-mono">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400">Space Telemetry</span>
+              <p>Regional Cloud Cover: <strong className="text-white">{activeLayer.cloudCoveragePct ?? 35}%</strong></p>
+              <p>Heading Vector: <strong className="text-cyan-300">{cloudMovement}</strong></p>
             </div>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              {activeLayer?.description}
-            </p>
-            <div className="pt-2 text-[11px] text-slate-400 font-mono border-t border-slate-800">
-              Regional Cloud Cover: <span className="font-bold text-white">{activeLayer?.cloudCoveragePct ?? 35}%</span>
-              <br />
-              Vector: <span className="font-semibold text-cyan-300">{cloudMovement}</span>
+            <div className="space-y-1 font-mono">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Attribution</span>
+              <p>Provider: <strong className="text-slate-200">{activeLayer.attribution}</strong></p>
+              <p>Scan latency: <strong className="text-emerald-400">{activeLayer.freshnessMinutes} mins</strong></p>
             </div>
           </div>
-
-          {/* Layer Metadata Overlay */}
-          <div className="absolute bottom-6 left-6 p-3 rounded-2xl glass-panel border border-slate-800 text-[11px] text-slate-300 space-y-1 z-20">
-            <div className="font-bold uppercase tracking-wider text-slate-400 text-[10px]">
-              Observation Telemetry
-            </div>
-            <div>Attribution: {activeLayer?.attribution}</div>
-            <div>Scan latency: {activeLayer?.freshnessMinutes} minutes</div>
-          </div>
-        </div>
+        )}
       </main>
 
       <MobileBottomNav />

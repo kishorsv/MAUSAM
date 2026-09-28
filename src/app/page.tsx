@@ -608,6 +608,7 @@ export default function HomePage() {
             {/* Interactive Weather Radar Map */}
             <WeatherMapComponent 
               weather={weather} 
+              externalMapType={activeFeatureWorld === 'satellite' ? 'satellite' : undefined}
               onSelectLocation={(loc) => {
                 setManualLocation({
                   latitude: loc.lat,

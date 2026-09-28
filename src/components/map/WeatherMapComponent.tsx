@@ -1,21 +1,37 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Layers, MapPin, Navigation, Wind, Thermometer, CloudRain, 
   AlertTriangle, Eye, ZoomIn, ZoomOut, Compass, ShieldCheck, 
-  Info, ExternalLink, RefreshCw 
+  Info, ExternalLink, RefreshCw, Orbit, Maximize2, Minimize2,
+  Check, Globe, Key, AlertCircle, Sparkles, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { WeatherPayload, WeatherLocation } from '@/lib/weather/types';
 import { useLocation } from '@/components/location/LocationContext';
-import { formatTemperature, formatWindSpeed } from '@/lib/utils';
+import { 
+  GoogleMapType, 
+  GoogleMapsDiagnosticCode, 
+  GoogleMapsDiagnosticInfo, 
+  GoogleMapsLoaderStatus,
+  loadGoogleMapsScript,
+  getActiveGoogleMapsApiKey,
+  maskGoogleMapsApiKey,
+  resolveMapTypeId,
+  getGoogleMapsDiagnostics,
+  subscribeToGoogleMaps,
+  reportGoogleMapsError
+} from '@/lib/maps/google-maps-loader';
 
-interface WeatherMapProps {
+export interface WeatherMapProps {
   weather: WeatherPayload;
   onSelectLocation?: (loc: WeatherLocation) => void;
+  initialMapType?: GoogleMapType;
+  externalMapType?: GoogleMapType;
+  showRadarFallbackToggle?: boolean;
 }
 
-// Google Maps Night/Dark Styling Schema
+// Google Maps Night/Dark Styling Schema for Roadmap
 const GOOGLE_MAPS_DARK_STYLE = [
   { elementType: 'geometry', stylers: [{ color: '#0f172a' }] },
   { elementType: 'labels.text.stroke', stylers: [{ color: '#0f172a' }] },
@@ -67,99 +83,168 @@ const GOOGLE_MAPS_DARK_STYLE = [
   }
 ];
 
-export function WeatherMapComponent({ weather, onSelectLocation }: WeatherMapProps) {
+export function WeatherMapComponent({ 
+  weather, 
+  onSelectLocation,
+  initialMapType = 'roadmap',
+  externalMapType,
+  showRadarFallbackToggle = true
+}: WeatherMapProps) {
   const { currentLocation, accuracy, isLowAccuracy } = useLocation();
   const [activeLayer, setActiveLayer] = useState<'temp' | 'rain' | 'wind' | 'aqi'>('temp');
-  const [mapMode, setMapMode] = useState<'radar' | 'google'>('radar');
+  const [mapMode, setMapMode] = useState<'radar' | 'google'>('google');
+  const [selectedMapType, setSelectedMapType] = useState<GoogleMapType>(initialMapType);
+  const [isMapReady, setIsMapReady] = useState(false);
+  const [isSwitchingType, setIsSwitchingType] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
-  const [googleMapsStatus, setGoogleMapsStatus] = useState<
-    'idle' | 'loading' | 'ready' | 'error' | 'auth_failed' | 'not_configured'
-  >('idle');
-  const [googleMapsErrorMsg, setGoogleMapsErrorMsg] = useState<string | null>(null);
+  const [radarZoom, setRadarZoom] = useState(1);
 
-  const googleMapRef = useRef<HTMLDivElement | null>(null);
+  // Diagnostics & Status
+  const [loaderStatus, setLoaderStatus] = useState<GoogleMapsLoaderStatus>('idle');
+  const [diagnostic, setDiagnostic] = useState<GoogleMapsDiagnosticInfo>(
+    getGoogleMapsDiagnostics(false, initialMapType)
+  );
+  const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
+  const [customKeyInput, setCustomKeyInput] = useState('');
+  const [keyApplySuccess, setKeyApplySuccess] = useState(false);
+
+  // References
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const googleMapDivRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<any>(null);
   const markerInstanceRef = useRef<any>(null);
   const circleInstanceRef = useRef<any>(null);
+  const cityMarkersRef = useRef<any[]>([]);
 
-  const googleApiKey =
-    process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY ||
-    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ||
-    '';
-
-  // Check Google Maps availability and initialize if key is present
-  useEffect(() => {
-    if (!googleApiKey || googleApiKey.trim() === '') {
-      setGoogleMapsStatus('not_configured');
-      setMapMode('radar');
-      return;
-    }
-
-    setGoogleMapsStatus('loading');
-
-    // Register global Google Maps auth failure callback
-    (window as any).gm_authFailure = () => {
-      setGoogleMapsStatus('auth_failed');
-      setGoogleMapsErrorMsg(
-        'Google Maps API authorization failed. Check API key, billing status, and HTTP referrer restrictions.'
-      );
-      setMapMode('radar');
-    };
-
-    if ((window as any).google && (window as any).google.maps) {
-      setGoogleMapsStatus('ready');
-      setMapMode('google');
-      return;
-    }
-
-    const scriptId = 'google-maps-script';
-    let script = document.getElementById(scriptId) as HTMLScriptElement | null;
-    if (!script) {
-      script = document.createElement('script');
-      script.id = scriptId;
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${googleApiKey}&libraries=places,geometry`;
-      script.async = true;
-      script.defer = true;
-      script.onload = () => {
-        setGoogleMapsStatus('ready');
-        setMapMode('google');
-      };
-      script.onerror = () => {
-        setGoogleMapsStatus('error');
-        setGoogleMapsErrorMsg('Failed to load Google Maps SDK script. Falling back to Weather Radar.');
-        setMapMode('radar');
-      };
-      document.head.appendChild(script);
-    }
-  }, [googleApiKey]);
-
-  // Mount Google Map when in 'google' mode and ready
   const weatherLat = weather.location.lat;
   const weatherLon = weather.location.lon;
   const weatherLocationName = weather.location.name;
   const currentTemp = weather.current.temperature;
   const currentCondition = weather.current.condition;
 
+  // Restore user map type preference on mount (or use initialMapType)
   useEffect(() => {
-    if (mapMode !== 'google' || googleMapsStatus !== 'ready' || !googleMapRef.current) return;
+    try {
+      const savedType = localStorage.getItem('mausam-map-type') as GoogleMapType | null;
+      if (savedType && ['roadmap', 'satellite', 'hybrid', 'terrain'].includes(savedType)) {
+        setSelectedMapType(savedType);
+      } else if (initialMapType) {
+        setSelectedMapType(initialMapType);
+      }
+    } catch {
+      // localStorage unavailable in private mode
+    }
+  }, [initialMapType]);
+
+  // Handle external map type changes (e.g. from Satellite feature world or page)
+  useEffect(() => {
+    if (externalMapType && ['roadmap', 'satellite', 'hybrid', 'terrain'].includes(externalMapType)) {
+      handleMapTypeChange(externalMapType);
+    }
+  }, [externalMapType, handleMapTypeChange]);
+
+  // Subscribe to Google Maps singleton loader status
+  useEffect(() => {
+    const unsubscribe = subscribeToGoogleMaps((status, diag) => {
+      setLoaderStatus(status);
+      setDiagnostic(diag);
+      if (status === 'ready') {
+        setMapMode('google');
+      } else if (status === 'error' || status === 'auth_failed' || status === 'not_configured') {
+        // Fall back gracefully to radar mode so dashboard never breaks
+        setMapMode('radar');
+      }
+    });
+
+    // Initiate SDK load
+    loadGoogleMapsScript().catch(() => {});
+
+    return () => unsubscribe();
+  }, []);
+
+  // Sync fullscreen state
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  // Core: Switch Map Type on Existing Map Instance
+  const handleMapTypeChange = useCallback((targetType: GoogleMapType) => {
+    setSelectedMapType(targetType);
+
+    try {
+      localStorage.setItem('mausam-map-type', targetType);
+    } catch {}
+
+    // Ensure we are in Google mode
+    setMapMode('google');
+
+    if (!mapInstanceRef.current) {
+      reportGoogleMapsError('GOOGLE_MAP_NOT_READY', 'Map container is still initializing');
+      return;
+    }
+
+    try {
+      setIsSwitchingType(true);
+      const g = (window as any).google?.maps;
+      if (!g) return;
+
+      const typeId = resolveMapTypeId(targetType, g);
+
+      // CRITICAL: Call setMapTypeId on the EXISTING map instance!
+      // Do NOT create a new map. Do NOT reset zoom, center, or markers!
+      mapInstanceRef.current.setMapTypeId(typeId);
+
+      // Apply sleek dark theme on roadmap, restore natural crystal clarity for satellite/hybrid
+      if (targetType === 'roadmap') {
+        mapInstanceRef.current.setOptions({ styles: GOOGLE_MAPS_DARK_STYLE });
+      } else {
+        mapInstanceRef.current.setOptions({ styles: null });
+      }
+
+      setDiagnostic(getGoogleMapsDiagnostics(true, targetType));
+
+      setTimeout(() => {
+        setIsSwitchingType(false);
+      }, 350);
+    } catch (err: any) {
+      setIsSwitchingType(false);
+      reportGoogleMapsError('SATELLITE_MODE_ERROR', err?.message || 'Error executing setMapTypeId');
+    }
+  }, []);
+
+  // Initialize Google Map (once) when in 'google' mode and ready
+  useEffect(() => {
+    if (mapMode !== 'google' || loaderStatus !== 'ready' || !googleMapDivRef.current) return;
     if (!(window as any).google || !(window as any).google.maps) return;
 
     const g = (window as any).google.maps;
     const centerLatLng = { lat: weatherLat, lng: weatherLon };
 
     if (!mapInstanceRef.current) {
-      const map = new g.Map(googleMapRef.current, {
+      // Resolve initial mapTypeId
+      const initialTypeId = resolveMapTypeId(selectedMapType, g);
+
+      const map = new g.Map(googleMapDivRef.current, {
         center: centerLatLng,
         zoom: 11,
-        styles: GOOGLE_MAPS_DARK_STYLE,
-        disableDefaultUI: false,
-        zoomControl: true,
+        mapTypeId: initialTypeId,
+        styles: selectedMapType === 'roadmap' ? GOOGLE_MAPS_DARK_STYLE : null,
+        disableDefaultUI: true, // We provide custom floating glass controls
+        zoomControl: false,
         streetViewControl: false,
         mapTypeControl: false,
-        fullscreenControl: false
+        fullscreenControl: false,
+        gestureHandling: 'greedy'
       });
 
       mapInstanceRef.current = map;
+      setIsMapReady(true);
+      setDiagnostic(getGoogleMapsDiagnostics(true, selectedMapType));
 
       // Handle map click to select new real coordinates
       map.addListener('click', (e: any) => {
@@ -173,10 +258,11 @@ export function WeatherMapComponent({ weather, onSelectLocation }: WeatherMapPro
         });
       });
     } else {
+      // Map instance already exists — update center if location changed
       mapInstanceRef.current.panTo(centerLatLng);
     }
 
-    // Current Location Marker
+    // Refresh Current Location Pin Marker
     if (markerInstanceRef.current) {
       markerInstanceRef.current.setMap(null);
     }
@@ -184,12 +270,12 @@ export function WeatherMapComponent({ weather, onSelectLocation }: WeatherMapPro
     const marker = new g.Marker({
       position: centerLatLng,
       map: mapInstanceRef.current,
-      title: `📍 Current Location: ${weatherLocationName} (${currentTemp}°C, ${currentCondition})`,
+      title: `📍 Current: ${weatherLocationName} (${currentTemp}°C, ${currentCondition})`,
       animation: g.Animation.DROP
     });
     markerInstanceRef.current = marker;
 
-    // Accuracy Circle
+    // Refresh Accuracy Circle
     if (circleInstanceRef.current) {
       circleInstanceRef.current.setMap(null);
     }
@@ -209,17 +295,68 @@ export function WeatherMapComponent({ weather, onSelectLocation }: WeatherMapPro
     }
   }, [
     mapMode,
-    googleMapsStatus,
+    loaderStatus,
     weatherLat,
     weatherLon,
     weatherLocationName,
     currentTemp,
     currentCondition,
     accuracy,
-    onSelectLocation
+    onSelectLocation,
+    selectedMapType
   ]);
 
-  // Key reference points for regional weather map display
+  // Floating Controls Handlers
+  const handleZoomIn = () => {
+    if (mapMode === 'google' && mapInstanceRef.current) {
+      const cur = mapInstanceRef.current.getZoom() || 11;
+      mapInstanceRef.current.setZoom(cur + 1);
+    } else {
+      setRadarZoom(prev => Math.min(prev + 0.2, 1.8));
+    }
+  };
+
+  const handleZoomOut = () => {
+    if (mapMode === 'google' && mapInstanceRef.current) {
+      const cur = mapInstanceRef.current.getZoom() || 11;
+      mapInstanceRef.current.setZoom(Math.max(cur - 1, 2));
+    } else {
+      setRadarZoom(prev => Math.max(prev - 0.2, 0.8));
+    }
+  };
+
+  const handleRecenter = () => {
+    if (mapMode === 'google' && mapInstanceRef.current) {
+      mapInstanceRef.current.panTo({ lat: weatherLat, lng: weatherLon });
+      mapInstanceRef.current.setZoom(12);
+    }
+  };
+
+  const handleToggleFullscreen = () => {
+    if (!containerRef.current) return;
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
+
+  const handleApplyCustomKey = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customKeyInput || customKeyInput.trim() === '') return;
+    try {
+      sessionStorage.setItem('mausam-google-maps-key-override', customKeyInput.trim());
+      setKeyApplySuccess(true);
+      loadGoogleMapsScript(customKeyInput.trim())
+        .then(() => {
+          setMapMode('google');
+        })
+        .catch(() => {});
+      setTimeout(() => setKeyApplySuccess(false), 3000);
+    } catch {}
+  };
+
+  // Regional reference points for weather overlays
   const keyCities = [
     {
       name: weather.location.name,
@@ -242,62 +379,109 @@ export function WeatherMapComponent({ weather, onSelectLocation }: WeatherMapPro
   ];
 
   return (
-    <div className="glass-panel rounded-3xl p-6 border border-white/5 relative overflow-hidden space-y-4">
+    <div 
+      ref={containerRef}
+      className={`glass-panel rounded-3xl p-4 sm:p-6 border border-white/5 relative overflow-hidden space-y-4 transition-all duration-300 ${
+        isFullscreen ? 'fixed inset-0 z-50 rounded-none bg-slate-950 p-6' : ''
+      }`}
+    >
       {/* Top Map Header Controls */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="text-base font-semibold text-slate-100 flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <MapPin className="w-5 h-5 text-primary-400" />
-            <span>Regional Weather Radar & Geospatial Map</span>
-          </h3>
+            <h3 className="text-base font-semibold text-slate-100 flex items-center gap-2">
+              <span>{selectedMapType === 'satellite' ? 'Real Google Satellite Weather Map' : 'Regional Weather Map & Radar'}</span>
+            </h3>
+            {selectedMapType === 'satellite' && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1">
+                <Orbit className="w-3 h-3 text-cyan-400 animate-spin-slow" />
+                REAL SATELLITE
+              </span>
+            )}
+          </div>
           <p className="text-xs text-slate-400 mt-0.5">
-            Synchronized with latitude {weather.location.lat.toFixed(4)}°, longitude {weather.location.lon.toFixed(4)}°
+            Synchronized with {weather.location.name} ({weather.location.lat.toFixed(4)}°N, {weather.location.lon.toFixed(4)}°E)
           </p>
         </div>
 
-        {/* View Mode Toggle & Layer Controls */}
+        {/* View Mode & Map Type Controls */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Mode Switcher */}
-          <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-900/90 border border-slate-800">
+          {/* Working Google Map Mode Selector: [ Map ] [ Satellite ] [ Hybrid ] [ Terrain ] */}
+          {loaderStatus === 'ready' && (
+            <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-md">
+              <button
+                onClick={() => handleMapTypeChange('roadmap')}
+                disabled={!isMapReady}
+                title={!isMapReady ? 'Map is still loading...' : 'Switch to standard roadmap'}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                  mapMode === 'google' && selectedMapType === 'roadmap'
+                    ? 'bg-primary-600 text-white shadow-sm ring-1 ring-primary-400/50'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                } ${!isMapReady ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                Map
+              </button>
+
+              <button
+                onClick={() => handleMapTypeChange('satellite')}
+                disabled={!isMapReady}
+                title={!isMapReady ? 'Map is still loading...' : 'Switch to real Google Satellite imagery'}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                  mapMode === 'google' && selectedMapType === 'satellite'
+                    ? 'bg-indigo-600 text-white shadow-glow-primary ring-1 ring-indigo-400/50'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                } ${!isMapReady ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <Orbit className="w-3.5 h-3.5" />
+                <span>Satellite</span>
+                {mapMode === 'google' && selectedMapType === 'satellite' && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
+                )}
+              </button>
+
+              <button
+                onClick={() => handleMapTypeChange('hybrid')}
+                disabled={!isMapReady}
+                title={!isMapReady ? 'Map is still loading...' : 'Switch to Satellite with labels'}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                  mapMode === 'google' && selectedMapType === 'hybrid'
+                    ? 'bg-sky-600 text-white shadow-sm ring-1 ring-sky-400/50'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                } ${!isMapReady ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                Hybrid
+              </button>
+
+              <button
+                onClick={() => handleMapTypeChange('terrain')}
+                disabled={!isMapReady}
+                title={!isMapReady ? 'Map is still loading...' : 'Switch to topographic terrain'}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                  mapMode === 'google' && selectedMapType === 'terrain'
+                    ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-400/50'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                } ${!isMapReady ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                Terrain
+              </button>
+            </div>
+          )}
+
+          {/* Fallback to Weather Radar Canvas Toggle */}
+          {showRadarFallbackToggle && (
             <button
-              onClick={() => setMapMode('radar')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              onClick={() => setMapMode(mapMode === 'radar' ? 'google' : 'radar')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
                 mapMode === 'radar'
-                  ? 'bg-primary-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-cyan-600/90 text-white border-cyan-400 shadow-sm'
+                  : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-white'
               }`}
+              title="Toggle Doppler Weather Radar Canvas"
             >
-              Weather Radar
+              {mapMode === 'radar' ? 'Radar Canvas Active' : 'Radar Canvas'}
             </button>
-            <button
-              onClick={() => {
-                if (googleMapsStatus === 'ready') {
-                  setMapMode('google');
-                } else {
-                  alert(
-                    googleMapsStatus === 'not_configured'
-                      ? 'Google Maps API key is not configured in .env. Falling back to high-precision Weather Radar.'
-                      : 'Google Maps API encountered an authorization or billing error. Using Weather Radar.'
-                  );
-                }
-              }}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                mapMode === 'google'
-                  ? 'bg-sky-600 text-white shadow-sm'
-                  : googleMapsStatus === 'ready'
-                  ? 'text-slate-400 hover:text-white'
-                  : 'text-slate-600 cursor-not-allowed opacity-60'
-              }`}
-              title={
-                googleMapsStatus === 'ready'
-                  ? 'Switch to interactive Google Map'
-                  : 'Google Maps requires API key & billing'
-              }
-            >
-              <span>Google Map</span>
-              {googleMapsStatus === 'ready' && <ShieldCheck className="w-3 h-3 text-emerald-400" />}
-            </button>
-          </div>
+          )}
 
           {/* Layer Toggles (Radar Mode) */}
           {mapMode === 'radar' && (
@@ -305,9 +489,7 @@ export function WeatherMapComponent({ weather, onSelectLocation }: WeatherMapPro
               <button
                 onClick={() => setActiveLayer('temp')}
                 className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                  activeLayer === 'temp'
-                    ? 'bg-primary-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-white'
+                  activeLayer === 'temp' ? 'bg-primary-600 text-white' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 <Thermometer className="w-3.5 h-3.5 text-amber-400" />
@@ -316,9 +498,7 @@ export function WeatherMapComponent({ weather, onSelectLocation }: WeatherMapPro
               <button
                 onClick={() => setActiveLayer('rain')}
                 className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                  activeLayer === 'rain'
-                    ? 'bg-cyan-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-white'
+                  activeLayer === 'rain' ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 <CloudRain className="w-3.5 h-3.5 text-cyan-300" />
@@ -327,9 +507,7 @@ export function WeatherMapComponent({ weather, onSelectLocation }: WeatherMapPro
               <button
                 onClick={() => setActiveLayer('wind')}
                 className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                  activeLayer === 'wind'
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-white'
+                  activeLayer === 'wind' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 <Wind className="w-3.5 h-3.5 text-indigo-300" />
@@ -338,9 +516,7 @@ export function WeatherMapComponent({ weather, onSelectLocation }: WeatherMapPro
               <button
                 onClick={() => setActiveLayer('aqi')}
                 className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                  activeLayer === 'aqi'
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-white'
+                  activeLayer === 'aqi' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 <Layers className="w-3.5 h-3.5 text-emerald-300" />
@@ -348,47 +524,187 @@ export function WeatherMapComponent({ weather, onSelectLocation }: WeatherMapPro
               </button>
             </div>
           )}
+
+          {/* Diagnostics Drawer Toggle */}
+          <button
+            onClick={() => setIsDiagnosticsOpen(!isDiagnosticsOpen)}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-mono font-medium border bg-slate-900/60 border-slate-800 text-slate-400 hover:text-white transition-colors"
+            title="Open Developer Map Diagnostics"
+          >
+            <span>⚡ Diagnostics</span>
+            {isDiagnosticsOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          </button>
         </div>
       </div>
 
-      {/* Map Diagnostics Badge */}
-      <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-400 bg-white/5 p-2 rounded-xl border border-white/5 gap-2">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>
-            📍 <strong>{weather.location.name}</strong> ({weather.location.lat.toFixed(2)}°N,{' '}
-            {weather.location.lon.toFixed(2)}°E)
-          </span>
-          {accuracy && (
-            <span className="text-slate-400 ml-1">
-              • Accuracy: ±{Math.round(accuracy)}m {isLowAccuracy && '(Low)'}
+      {/* Developer Diagnostics Drawer */}
+      {isDiagnosticsOpen && (
+        <div className="p-4 rounded-2xl bg-slate-950/95 border border-indigo-500/25 space-y-3 animate-in fade-in duration-200 text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-white/10">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-white font-mono flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                GOOGLE MAPS TELEMETRY & DIAGNOSTICS
+              </span>
+              <span className={`px-2 py-0.5 rounded-full font-mono text-[10px] font-bold border ${
+                loaderStatus === 'ready' 
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' 
+                  : loaderStatus === 'loading'
+                  ? 'bg-sky-500/20 text-sky-300 border-sky-500/30 animate-pulse'
+                  : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+              }`}>
+                STATUS: {loaderStatus.toUpperCase()}
+              </span>
+            </div>
+
+            <span className="font-mono text-[11px] text-slate-400">
+              Code: <strong className="text-cyan-300">{diagnostic.code}</strong>
             </span>
-          )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 text-[11px] font-mono">
+            <div className="p-2 rounded-xl bg-white/5 border border-white/5">
+              <span className="text-slate-400 block">Active Mode</span>
+              <span className="text-white font-semibold capitalize">{selectedMapType}</span>
+            </div>
+            <div className="p-2 rounded-xl bg-white/5 border border-white/5">
+              <span className="text-slate-400 block">Map Instance</span>
+              <span className={isMapReady ? 'text-emerald-400' : 'text-amber-400'}>
+                {isMapReady ? 'Ready & Attached' : 'Pending Init'}
+              </span>
+            </div>
+            <div className="p-2 rounded-xl bg-white/5 border border-white/5">
+              <span className="text-slate-400 block">API Key State</span>
+              <span className="text-slate-200">{diagnostic.maskedKey}</span>
+            </div>
+            <div className="p-2 rounded-xl bg-white/5 border border-white/5">
+              <span className="text-slate-400 block">GPS Coordinates</span>
+              <span className="text-cyan-300">{weatherLat.toFixed(4)}°, {weatherLon.toFixed(4)}°</span>
+            </div>
+          </div>
+
+          {/* Diagnostic resolution hint */}
+          <div className="p-2.5 rounded-xl bg-indigo-950/40 border border-indigo-500/30 text-indigo-200 text-[11px] flex items-start gap-2">
+            <Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+            <div>
+              <strong>Diagnostic Resolution Hint:</strong> {diagnostic.resolutionHint}
+            </div>
+          </div>
+
+          {/* Developer Quick Key Input */}
+          <form onSubmit={handleApplyCustomKey} className="flex flex-wrap items-center gap-2 pt-1">
+            <div className="flex items-center gap-2 flex-1 min-w-[240px]">
+              <Key className="w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                value={customKeyInput}
+                onChange={(e) => setCustomKeyInput(e.target.value)}
+                placeholder="Paste Google Maps API key to test live..."
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-400"
+              />
+            </div>
+            <button
+              type="submit"
+              className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors"
+            >
+              Apply & Reload SDK
+            </button>
+            {keyApplySuccess && (
+              <span className="text-emerald-400 flex items-center gap-1 font-mono text-[11px]">
+                <Check className="w-3.5 h-3.5" /> Key Saved
+              </span>
+            )}
+          </form>
         </div>
-        <div className="flex items-center gap-2">
-          <span>Map Provider:</span>
-          <span className="font-semibold text-slate-200">
-            {mapMode === 'google' && googleMapsStatus === 'ready'
-              ? 'Google Maps JS SDK'
-              : 'MAUSAM Radar Canvas Engine'}
-          </span>
-          {googleMapsStatus !== 'ready' && (
-            <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/20">
-              {googleMapsStatus === 'not_configured' ? 'Google Maps: Key not in .env' : 'Google Maps: Auth Notice'}
+      )}
+
+      {/* Notice Banner when Google Maps is Unavailable */}
+      {loaderStatus !== 'ready' && mapMode !== 'google' && (
+        <div className="flex flex-wrap items-center justify-between p-3 rounded-2xl bg-amber-950/40 border border-amber-500/30 text-amber-200 text-xs gap-3">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>
+              <strong>Google Maps SDK Notice:</strong> {diagnostic.message}
             </span>
-          )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                loadGoogleMapsScript().then(() => setMapMode('google')).catch(() => {});
+              }}
+              className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 font-semibold transition-colors flex items-center gap-1"
+            >
+              <RefreshCw className="w-3 h-3" /> Retry
+            </button>
+            <button
+              onClick={() => setIsDiagnosticsOpen(true)}
+              className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/15 text-slate-200 transition-colors"
+            >
+              Diagnostics
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Map Canvas / Google Map Container */}
-      <div className="relative w-full h-[380px] sm:h-[460px] rounded-2xl bg-slate-950/80 border border-slate-800/80 overflow-hidden flex items-center justify-center">
-        {/* Google Map Element */}
+      <div className={`relative w-full ${isFullscreen ? 'h-[calc(100vh-140px)]' : 'h-[400px] sm:h-[480px]'} rounded-2xl bg-slate-950 border border-slate-800/80 overflow-hidden flex items-center justify-center`}>
+        {/* Google Map Target Div */}
         <div
-          ref={googleMapRef}
+          ref={googleMapDivRef}
           className={`w-full h-full ${mapMode === 'google' ? 'block' : 'hidden'}`}
         />
 
-        {/* Radar Canvas Mode */}
+        {/* Subtle Map Type Transition Indicator (Never full-page loader) */}
+        {isSwitchingType && (
+          <div className="absolute top-4 left-4 z-30 flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/90 border border-indigo-500/40 backdrop-blur-md shadow-lg text-xs text-white">
+            <span className="w-2 h-2 rounded-full bg-indigo-400 animate-ping" />
+            <span>Switching to {selectedMapType.toUpperCase()}...</span>
+          </div>
+        )}
+
+        {/* Map Loading State Notice if container pending */}
+        {mapMode === 'google' && !isMapReady && loaderStatus === 'loading' && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm z-20 space-y-2">
+            <Orbit className="w-8 h-8 text-indigo-400 animate-spin-slow" />
+            <p className="text-xs text-slate-300 font-mono">Initializing Google Maps SDK...</p>
+          </div>
+        )}
+
+        {/* Floating Glass Controls for Google Map */}
+        {mapMode === 'google' && (
+          <div className="absolute top-4 right-4 flex flex-col gap-1.5 z-30">
+            <button
+              onClick={handleZoomIn}
+              className="p-2.5 rounded-xl glass-panel hover:bg-slate-800 text-slate-300 hover:text-white transition-colors border border-slate-700/60 shadow-lg"
+              title="Zoom In"
+            >
+              <ZoomIn className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleZoomOut}
+              className="p-2.5 rounded-xl glass-panel hover:bg-slate-800 text-slate-300 hover:text-white transition-colors border border-slate-700/60 shadow-lg"
+              title="Zoom Out"
+            >
+              <ZoomOut className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleRecenter}
+              className="p-2.5 rounded-xl glass-panel hover:bg-slate-800 text-slate-300 hover:text-white transition-colors border border-slate-700/60 shadow-lg"
+              title="Recenter on Current GPS Location"
+            >
+              <Navigation className="w-4 h-4 text-cyan-400" />
+            </button>
+            <button
+              onClick={handleToggleFullscreen}
+              className="p-2.5 rounded-xl glass-panel hover:bg-slate-800 text-slate-300 hover:text-white transition-colors border border-slate-700/60 shadow-lg"
+              title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Map'}
+            >
+              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </button>
+          </div>
+        )}
+
+        {/* Radar Canvas Fallback View */}
         {mapMode === 'radar' && (
           <div className="relative w-full h-full flex items-center justify-center">
             {/* Animated Geographic Mesh Grid */}
@@ -408,10 +724,10 @@ export function WeatherMapComponent({ weather, onSelectLocation }: WeatherMapPro
               <div className="absolute inset-0 bg-gradient-to-bl from-rose-500/15 via-amber-500/10 to-emerald-500/10 animate-pulse-slow" />
             )}
 
-            {/* Map Markers */}
+            {/* Map Markers for Radar Mode */}
             <div
               className="relative w-full h-full transition-transform duration-300"
-              style={{ transform: `scale(${zoomLevel})` }}
+              style={{ transform: `scale(${radarZoom})` }}
             >
               {keyCities.map((city, idx) => {
                 const isTarget = city.isCurrent;
@@ -439,7 +755,6 @@ export function WeatherMapComponent({ weather, onSelectLocation }: WeatherMapPro
                     style={{ left: `${city.x}%`, top: `${city.y}%` }}
                     title={`Select ${city.name}`}
                   >
-                    {/* Marker Pin */}
                     <div
                       className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border shadow-xl backdrop-blur-md transition-all ${
                         isTarget
@@ -450,18 +765,12 @@ export function WeatherMapComponent({ weather, onSelectLocation }: WeatherMapPro
                       <span
                         className={`w-2 h-2 rounded-full ${
                           activeLayer === 'temp'
-                            ? city.temp > 30
-                              ? 'bg-rose-400'
-                              : 'bg-amber-400'
+                            ? city.temp > 30 ? 'bg-rose-400' : 'bg-amber-400'
                             : activeLayer === 'rain'
-                            ? city.rain > 50
-                              ? 'bg-cyan-400 animate-pulse'
-                              : 'bg-slate-400'
+                            ? city.rain > 50 ? 'bg-cyan-400 animate-pulse' : 'bg-slate-400'
                             : activeLayer === 'wind'
                             ? 'bg-indigo-400'
-                            : city.aqi > 150
-                            ? 'bg-rose-500 animate-pulse'
-                            : 'bg-emerald-400'
+                            : city.aqi > 150 ? 'bg-rose-500 animate-pulse' : 'bg-emerald-400'
                         }`}
                       />
                       <span className="truncate">{city.name}</span>
@@ -480,56 +789,40 @@ export function WeatherMapComponent({ weather, onSelectLocation }: WeatherMapPro
               })}
             </div>
 
-            {/* Radar Legend Overlay */}
-            <div className="absolute bottom-4 left-4 p-3 rounded-2xl glass-panel border border-slate-800 text-[11px] text-slate-300 space-y-1 z-30">
-              <div className="font-semibold text-white uppercase text-[10px] tracking-wider mb-1">
-                Radar Legend ({activeLayer.toUpperCase()})
-              </div>
-              {activeLayer === 'temp' && (
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" /> &lt;20°C Cool
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 ml-2" /> 20-30°C Mild
-                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 ml-2" /> &gt;30°C Warm
-                </div>
-              )}
-              {activeLayer === 'rain' && (
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-slate-400" /> &lt;30% Dry
-                  <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 ml-2" /> 30-70% Showers
-                  <span className="w-2.5 h-2.5 rounded-full bg-blue-600 ml-2" /> &gt;70% Downpour
-                </div>
-              )}
-              {activeLayer === 'aqi' && (
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" /> 0-50 Good
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 ml-2" /> 51-100 Mod
-                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 ml-2" /> &gt;150 Unhealthy
-                </div>
-              )}
-              {activeLayer === 'wind' && (
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-300" /> &lt;20 km/h Breeze
-                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 ml-2" /> &gt;35 km/h Strong
-                </div>
-              )}
-            </div>
-
-            {/* Zoom Controls */}
+            {/* Radar Zoom Controls */}
             <div className="absolute top-4 right-4 flex flex-col gap-1 z-30">
               <button
-                onClick={() => setZoomLevel((prev) => Math.min(prev + 0.2, 1.6))}
+                onClick={handleZoomIn}
                 className="p-2 rounded-xl glass-panel hover:bg-slate-800 text-slate-300 transition-colors border border-slate-800 shadow-md"
                 title="Zoom In"
               >
                 <ZoomIn className="w-4 h-4" />
               </button>
               <button
-                onClick={() => setZoomLevel((prev) => Math.max(prev - 0.2, 0.8))}
+                onClick={handleZoomOut}
                 className="p-2 rounded-xl glass-panel hover:bg-slate-800 text-slate-300 transition-colors border border-slate-800 shadow-md"
                 title="Zoom Out"
               >
                 <ZoomOut className="w-4 h-4" />
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Live Weather Overlay Badge on Google Map */}
+        {mapMode === 'google' && (
+          <div className="absolute bottom-4 left-4 p-3 rounded-2xl glass-panel border border-slate-800 text-xs text-slate-200 z-30 space-y-1.5 max-w-xs shadow-xl">
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-bold text-white flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                {selectedMapType.toUpperCase()} TELEMETRY
+              </span>
+              <span className="font-mono text-[10px] text-cyan-300">
+                {selectedMapType === 'satellite' ? 'Google Satellite' : 'Vector Map'}
+              </span>
+            </div>
+            <div className="text-[11px] text-slate-300">
+              Location: <strong>{weather.location.name}</strong> • {currentTemp}°C ({currentCondition})
             </div>
           </div>
         )}
