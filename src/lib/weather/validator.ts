@@ -62,8 +62,10 @@ export interface ValidatedWeatherResponse {
     precipitation: number | null;
     rain: number | null;
     windSpeed: number | null;
+    windDirection?: number | null;
     uvIndex: number | null;
     humidity: number | null;
+    cloudCover?: number | null;
     weatherCode: number | null;
     condition: string;
     isDay: boolean;
@@ -137,14 +139,16 @@ export class WeatherValidator {
           const hWmo = typeof h.wmoCode === 'number' ? getWmoCondition(h.wmoCode) : getWmoCondition(2);
           return {
             time: h.time || new Date().toISOString(),
-            temperature: this.safeNumber(h.temperature),
-            feelsLike: this.safeNumber(h.feelsLike),
+            temperature: this.safeNumber(h.temperature, 1),
+            feelsLike: this.safeNumber(h.feelsLike, 1),
             precipitationProbability: this.safeNumber(h.precipitationProbability),
             precipitation: this.safeNumber(h.precipitation, 1),
             rain: this.safeNumber(h.rain, 1),
             windSpeed: this.safeNumber(h.windSpeed),
+            windDirection: this.safeNumber((h as any).windDirection),
             uvIndex: this.safeNumber(h.uvIndex),
             humidity: this.safeNumber(h.humidity),
+            cloudCover: this.safeNumber(h.cloudCover),
             weatherCode: typeof h.wmoCode === 'number' ? h.wmoCode : null,
             condition: h.condition || hWmo.condition,
             isDay: Boolean(h.isDay)

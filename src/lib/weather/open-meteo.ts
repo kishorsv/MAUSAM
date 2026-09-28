@@ -33,7 +33,7 @@ export class OpenMeteoProvider implements IWeatherProvider {
   }
 
   async getWeather(lat: number, lon: number, locationMeta?: Partial<WeatherLocation>): Promise<WeatherPayload> {
-    const forecastUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,cloud_cover,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,precipitation,rain,cloud_cover,weather_code,surface_pressure,visibility,wind_speed_10m,uv_index,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,sunrise,sunset,uv_index_max,precipitation_sum,rain_sum,precipitation_probability_max,wind_speed_10m_max&timezone=auto`;
+    const forecastUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,cloud_cover,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,precipitation,rain,cloud_cover,weather_code,surface_pressure,visibility,wind_speed_10m,wind_direction_10m,uv_index,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,sunrise,sunset,uv_index_max,precipitation_sum,rain_sum,precipitation_probability_max,wind_speed_10m_max&timezone=auto&forecast_days=3`;
     const aqiUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi,pm2_5,pm10,nitrogen_dioxide,sulphur_dioxide,ozone,carbon_monoxide,european_aqi&timezone=auto`;
 
     // Execute Forecast and AQI in parallel with error isolation
@@ -81,28 +81,88 @@ export class OpenMeteoProvider implements IWeatherProvider {
 
     const currentWeatherDesc = getWmoWeatherDescription(currentRaw.weather_code);
 
-    // Hourly items (next 24 hours)
+    // Validate hourly array integrity across all parallel metrics
+    if (
+      hourlyRaw &&
+      Array.isArray(hourlyRaw.time) &&
+      (hourlyRaw.time.length !== hourlyRaw.temperature_2m?.length ||
+        hourlyRaw.time.length !== hourlyRaw.weather_code?.length ||
+        hourlyRaw.time.length !== hourlyRaw.precipitation_probability?.length)
+    ) {
+      console.error('[HOURLY_DATA_LENGTH_MISMATCH] Hourly arrays length mismatch:', {
+        timeLen: hourlyRaw.time.length,
+        tempLen: hourlyRaw.temperature_2m?.length,
+        wmoLen: hourlyRaw.weather_code?.length,
+        probLen: hourlyRaw.precipitation_probability?.length
+      });
+    }
+
+    // Determine current local hour index matching location's actual timezone
     const hourly: HourlyForecastItem[] = [];
-    const currentIso = new Date().toISOString();
     let startIndex = 0;
-    if (hourlyRaw && hourlyRaw.time) {
-      for (let i = 0; i < hourlyRaw.time.length; i++) {
-        if (hourlyRaw.time[i] >= currentIso.slice(0, 13)) {
-          startIndex = i;
-          break;
+
+    if (hourlyRaw && Array.isArray(hourlyRaw.time) && hourlyRaw.time.length > 0) {
+      // 1. Prefer currentRaw.time if provided by provider (e.g. "2026-09-28T22:30" -> "2026-09-28T22")
+      const currentLocalHourPrefix = currentRaw?.time ? currentRaw.time.slice(0, 13) : '';
+
+      // 2. Fallback: Compute local date/hour using forecastData.timezone
+      let tzHourPrefix = '';
+      try {
+        if (forecastData.timezone) {
+          const formatter = new Intl.DateTimeFormat('en-CA', {
+            timeZone: forecastData.timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            hour12: false
+          });
+          const parts = formatter.formatToParts(new Date());
+          const y = parts.find((p) => p.type === 'year')?.value;
+          const m = parts.find((p) => p.type === 'month')?.value;
+          const d = parts.find((p) => p.type === 'day')?.value;
+          const h = parts.find((p) => p.type === 'hour')?.value;
+          if (y && m && d && h) {
+            tzHourPrefix = `${y}-${m}-${d}T${h}`;
+          }
+        }
+      } catch {}
+
+      const targetPrefix = currentLocalHourPrefix || tzHourPrefix;
+
+      if (targetPrefix) {
+        const foundIndex = hourlyRaw.time.findIndex(
+          (t: string) => t.slice(0, 13) === targetPrefix
+        );
+        if (foundIndex >= 0) {
+          startIndex = foundIndex;
+        } else {
+          // If exact hour not found, find the first timestamp at or after the target prefix
+          const atOrAfter = hourlyRaw.time.findIndex((t: string) => t >= targetPrefix);
+          if (atOrAfter >= 0) startIndex = atOrAfter;
         }
       }
-      for (let i = startIndex; i < Math.min(startIndex + 24, hourlyRaw.time.length); i++) {
+
+      // Map exactly 24 consecutive hours matching array index
+      const maxEnd = Math.min(startIndex + 24, hourlyRaw.time.length);
+      for (let i = startIndex; i < maxEnd; i++) {
         const desc = getWmoWeatherDescription(hourlyRaw.weather_code[i]);
         hourly.push({
           time: hourlyRaw.time[i],
-          temperature: Math.round(hourlyRaw.temperature_2m[i]),
-          feelsLike: Math.round(hourlyRaw.apparent_temperature[i]),
+          temperature: Math.round(hourlyRaw.temperature_2m[i] * 10) / 10,
+          feelsLike: Math.round(hourlyRaw.apparent_temperature[i] * 10) / 10,
           precipitationProbability: Math.round(hourlyRaw.precipitation_probability[i] || 0),
-          precipitation: Number(hourlyRaw.precipitation[i] || 0),
-          rain: Number(hourlyRaw.rain?.[i] || 0),
-          cloudCover: hourlyRaw.cloud_cover?.[i] !== undefined ? Math.round(hourlyRaw.cloud_cover[i]) : undefined,
+          precipitation: Number((hourlyRaw.precipitation[i] || 0).toFixed(1)),
+          rain: Number((hourlyRaw.rain?.[i] || 0).toFixed(1)),
+          cloudCover:
+            hourlyRaw.cloud_cover?.[i] !== undefined
+              ? Math.round(hourlyRaw.cloud_cover[i])
+              : undefined,
           windSpeed: Math.round(hourlyRaw.wind_speed_10m[i] || 0),
+          windDirection:
+            hourlyRaw.wind_direction_10m?.[i] !== undefined
+              ? Math.round(hourlyRaw.wind_direction_10m[i])
+              : undefined,
           uvIndex: Math.round(hourlyRaw.uv_index[i] || 0),
           humidity: Math.round(hourlyRaw.relative_humidity_2m[i] || 0),
           wmoCode: hourlyRaw.weather_code[i],

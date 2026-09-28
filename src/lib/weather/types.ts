@@ -47,6 +47,7 @@ export interface HourlyForecastItem {
   precipitation: number; // mm
   rain?: number; // mm
   windSpeed: number;
+  windDirection?: number;
   uvIndex: number;
   humidity: number;
   wmoCode: number;

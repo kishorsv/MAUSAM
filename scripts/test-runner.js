@@ -800,6 +800,77 @@ runTest('Feature Worlds Dock: All 12 feature items registered with valid metadat
   assert.ok(ids.includes('events'));
 });
 
+runTest('Hourly Forecast Data Mapping: Preserves distinct individual timestamps, temperatures, rain probabilities, and conditions', () => {
+  const { WeatherValidator } = require('../src/lib/weather/validator.ts');
+
+  // Simulated raw hourly records with distinct meteorological variables
+  const rawHourly = Array.from({ length: 24 }).map((_, i) => ({
+    time: `2026-09-28T${String(i).padStart(2, '0')}:00`,
+    temperature: 20 + (i % 8) * 1.2,
+    feelsLike: 21 + (i % 8) * 1.3,
+    precipitationProbability: (i * 4) % 100,
+    precipitation: i % 3 === 0 ? 0.8 : 0,
+    rain: i % 3 === 0 ? 0.8 : 0,
+    windSpeed: 5 + i * 0.5,
+    windDirection: (i * 15) % 360,
+    uvIndex: i >= 6 && i <= 18 ? 6 : 0,
+    humidity: 70 + (i % 5) * 3,
+    cloudCover: 20 + i * 3,
+    wmoCode: i % 4 === 0 ? 61 : i % 2 === 0 ? 3 : 1,
+    condition: i % 4 === 0 ? 'Rain' : i % 2 === 0 ? 'Overcast' : 'Mainly Clear',
+    isDay: i >= 6 && i <= 18
+  }));
+
+  const payload = {
+    location: { name: 'Bengaluru', lat: 12.97, lon: 77.59, country: 'India' },
+    current: { temperature: 24, feelsLike: 25, humidity: 80, pressure: 1012, windSpeed: 10, windDirection: 180, visibility: 10, uvIndex: 5, wmoCode: 2, condition: 'Partly Cloudy', isDay: true, precipitation: 0 },
+    hourly: rawHourly,
+    daily: [],
+    alerts: [],
+    provider: 'Open-Meteo',
+    isLive: true,
+    fetchedAt: new Date().toISOString()
+  };
+
+  const validated = WeatherValidator.validatePayload(payload);
+
+  // Assert exactly 24 records
+  assert.strictEqual(validated.hourly.length, 24);
+
+  // Assert index mapping is preserved and NOT repeated current temperature
+  assert.notStrictEqual(validated.hourly[0].temperature, validated.hourly[7].temperature);
+  assert.strictEqual(validated.hourly[0].time, '2026-09-28T00:00');
+  assert.strictEqual(validated.hourly[12].time, '2026-09-28T12:00');
+  assert.strictEqual(validated.hourly[0].condition, 'Rain');
+  assert.strictEqual(validated.hourly[1].condition, 'Mainly Clear');
+  assert.strictEqual(validated.hourly[2].condition, 'Overcast');
+
+  // Verify precipitation probabilities are unique to each hour
+  assert.strictEqual(validated.hourly[0].precipitationProbability, 0);
+  assert.strictEqual(validated.hourly[1].precipitationProbability, 4);
+  assert.strictEqual(validated.hourly[5].precipitationProbability, 20);
+});
+
+runTest('Hourly Forecast Validation: Catches mismatched array lengths without crashing', () => {
+  const { WeatherValidator } = require('../src/lib/weather/validator.ts');
+
+  // Test empty hourly array
+  const emptyPayload = {
+    location: { name: 'Bengaluru', lat: 12.97, lon: 77.59, country: 'India' },
+    current: { temperature: 24, feelsLike: 25, humidity: 80, pressure: 1012, windSpeed: 10, windDirection: 180, visibility: 10, uvIndex: 5, wmoCode: 2, condition: 'Partly Cloudy', isDay: true, precipitation: 0 },
+    hourly: [],
+    daily: [],
+    alerts: [],
+    provider: 'Open-Meteo',
+    isLive: true,
+    fetchedAt: new Date().toISOString()
+  };
+
+  const res = WeatherValidator.validatePayload(emptyPayload);
+  assert.strictEqual(res.hourly.length, 0);
+  assert.strictEqual(res.success, true);
+});
+
 console.log('\n====================================================');
 console.log(`TEST RESULTS: ${passedTests} PASSED, ${failedTests} FAILED`);
 console.log('====================================================');

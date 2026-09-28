@@ -509,6 +509,12 @@ export default function HomePage() {
                       <HourlyForecast
                         items={weather.hourly}
                         unit={preferences?.temperature_unit || 'celsius'}
+                        windUnit={preferences?.wind_unit || 'kmh'}
+                        fetchedAt={weather.fetchedAt}
+                        locationName={weather.location.name}
+                        coordinates={{ lat: weather.location.lat, lon: weather.location.lon }}
+                        timezone={weather.location.timezone}
+                        isUpdating={isRefreshing}
                       />
                     </div>
                   );
