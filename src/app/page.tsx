@@ -79,6 +79,7 @@ import { VoiceAssistantBar } from '@/components/ai/VoiceAssistantBar';
 import { CommandPalette } from '@/components/navigation/CommandPalette';
 import { FeatureWorldId } from '@/lib/theme/scene-registry';
 import { weatherSceneController } from '@/lib/theme/weather-scene-controller';
+import { DiagnosticsPanel } from '@/components/debug/DiagnosticsPanel';
 
 // Atmospheric Living Background & Theme Engine
 import { useTheme } from '@/components/theme/ThemeContext';
@@ -407,9 +408,10 @@ export default function HomePage() {
         {/* Error State */}
         {status === 'ERROR' && !weather && weatherError && (
           <ErrorState
-            title="Live weather data temporarily unavailable."
+            title="Weather data temporarily unavailable."
             message={weatherError.message}
             onRetry={retry}
+            onChangeLocation={() => setIsSearchOpen(true)}
           />
         )}
 
@@ -734,6 +736,9 @@ export default function HomePage() {
           </div>
         </div>
       )}
+
+      {/* Developer Diagnostics Panel */}
+      <DiagnosticsPanel />
     </div>
   );
 }

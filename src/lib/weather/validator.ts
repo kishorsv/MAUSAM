@@ -4,13 +4,33 @@ import { getWmoCondition } from './wmo';
 export interface ValidatedWeatherResponse {
   success: boolean;
   location: {
+    name: string;
+    city: string;
     latitude: number;
     longitude: number;
-    city: string;
     locality?: string;
     state?: string;
     country?: string;
     timezone?: string;
+  };
+  current: {
+    temperature: number | null;
+    feelsLike: number | null;
+    condition: string;
+    humidity: number | null;
+    windSpeed: number | null;
+    windDirection: number | null;
+    pressure: number | null;
+    visibility: number | null;
+    cloudCover: number | null;
+    uvIndex: number | null;
+    precipitation?: number | null;
+    rain?: number | null;
+    precipitationProbability?: number | null;
+    weatherCode?: number | null;
+    isDay?: boolean;
+    sunrise?: string;
+    sunset?: string;
   };
   weather: {
     temperature: number | null;
@@ -150,32 +170,45 @@ export class WeatherValidator {
         })
       : [];
 
+    const safeCurrent = {
+      temperature: this.safeNumber(current.temperature),
+      feelsLike: this.safeNumber(current.feelsLike),
+      condition: current.condition || wmo.condition,
+      humidity: this.safeNumber(current.humidity),
+      windSpeed: this.safeNumber(current.windSpeed),
+      windDirection: this.safeNumber(current.windDirection),
+      pressure: this.safeNumber(current.pressure),
+      visibility: this.safeNumber(current.visibility, 1),
+      cloudCover: this.safeNumber(current.cloudCover),
+      uvIndex: this.safeNumber(current.uvIndex),
+      precipitation: this.safeNumber(current.precipitation, 1),
+      rain: this.safeNumber(current.rain, 1),
+      precipitationProbability: safeHourly[0]?.precipitationProbability ?? null,
+      weatherCode: typeof current.wmoCode === 'number' ? current.wmoCode : null,
+      isDay: Boolean(current.isDay),
+      sunrise: safeDaily[0]?.sunrise || '--:--',
+      sunset: safeDaily[0]?.sunset || '--:--'
+    };
+
     return {
       success: true,
       location: {
+        name: loc.name || 'Current Location',
+        city: loc.name || 'Current Location',
         latitude: this.safeNumber(loc.lat, 4) || 0,
         longitude: this.safeNumber(loc.lon, 4) || 0,
-        city: loc.name || 'Current Location',
         locality: loc.region,
         state: loc.region,
         country: loc.country || '',
         timezone: loc.timezone || 'auto'
       },
+      current: safeCurrent,
       weather: {
-        temperature: this.safeNumber(current.temperature),
-        feelsLike: this.safeNumber(current.feelsLike),
-        humidity: this.safeNumber(current.humidity),
-        windSpeed: this.safeNumber(current.windSpeed),
-        windDirection: this.safeNumber(current.windDirection),
+        ...safeCurrent,
         rain: this.safeNumber(current.rain, 1),
         precipitation: this.safeNumber(current.precipitation, 1),
         precipitationProbability: safeHourly[0]?.precipitationProbability ?? null,
-        weatherCode: typeof current.wmoCode === 'number' ? current.wmoCode : null,
-        condition: current.condition || wmo.condition,
-        cloudCover: this.safeNumber(current.cloudCover),
-        uvIndex: this.safeNumber(current.uvIndex),
-        visibility: this.safeNumber(current.visibility, 1),
-        pressure: this.safeNumber(current.pressure)
+        weatherCode: typeof current.wmoCode === 'number' ? current.wmoCode : null
       },
       airQuality: payload.airQuality
         ? {

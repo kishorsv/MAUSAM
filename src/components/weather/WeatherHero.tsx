@@ -3,12 +3,13 @@
 import React from 'react';
 import { 
   Wind, Droplets, Compass, Eye, Gauge, Sparkles, Navigation,
-  Sunrise, Sunset, Radio, ShieldCheck, CloudRain, Cloud, RotateCw
+  Sunrise, Sunset, Radio, ShieldCheck, CloudRain, Cloud, RotateCw, MapPin
 } from 'lucide-react';
 import { WeatherPayload } from '@/lib/weather/types';
 import { formatTemperature, formatWindSpeed, formatTimeAgo } from '@/lib/utils';
 import { Language, translations } from '@/lib/i18n/translations';
 import { useTheme } from '@/components/theme/ThemeContext';
+import { useLocation } from '@/components/location/LocationContext';
 import { AnimatedWeatherIcon } from './AnimatedWeatherIcon';
 import { GlassPanel } from '@/components/common/GlassPanel';
 
@@ -32,6 +33,7 @@ export function WeatherHero({
   onOpenSearch
 }: WeatherHeroProps) {
   const { visualState, tokens } = useTheme();
+  const { accuracy, isLowAccuracy, currentLocation } = useLocation();
   const t = translations[language] || translations.en;
   const current = weather.current;
   const location = weather.location;
@@ -95,14 +97,14 @@ export function WeatherHero({
             className="group flex items-center gap-2 text-left transition-transform hover:scale-[1.01]"
           >
             <div className="w-8 h-8 rounded-xl bg-[var(--primary)]/15 border border-[var(--primary)]/30 flex items-center justify-center text-[var(--primary)] group-hover:scale-110 transition-transform">
-              <Navigation className="w-4 h-4" />
+              <MapPin className="w-4 h-4" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[var(--foreground)]">
-                  {location.name}
+                  {currentLocation.locality && currentLocation.locality !== location.name ? `${currentLocation.locality}, ` : ''}{location.name}
                 </h1>
-                {location.region && (
+                {location.region && location.region !== currentLocation.locality && (
                   <span className="text-sm font-medium text-[var(--foreground-muted)] hidden sm:inline">
                     , {location.region}
                   </span>
@@ -110,8 +112,17 @@ export function WeatherHero({
                 {/* LIVE INDICATOR BADGE */}
                 <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold tracking-wider">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>LIVE</span>
+                  <span>LIVE WEATHER</span>
                 </div>
+                {accuracy && (
+                  <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono border ${
+                    isLowAccuracy 
+                      ? 'bg-amber-500/15 border-amber-500/30 text-amber-400' 
+                      : 'bg-white/5 border-white/10 text-slate-300'
+                  }`}>
+                    <span>±{Math.round(accuracy)}m</span>
+                  </div>
+                )}
               </div>
             </div>
           </button>
@@ -129,7 +140,7 @@ export function WeatherHero({
               <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
             </button>
           )}
-          <span className="font-mono text-[11px]">{t.lastUpdated}: {formatTimeAgo(weather.fetchedAt)}</span>
+          <span className="font-mono text-[11px]">Updated {weather.fetchedAt ? formatTimeAgo(weather.fetchedAt) : 'just now'}</span>
           <span className="text-slate-600 hidden sm:inline">•</span>
           <span className="hidden sm:flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white/5 border border-white/5 font-semibold text-[11px] text-slate-300">
             <Radio className="w-3 h-3 text-[var(--primary)]" />

@@ -1,10 +1,20 @@
-export type LocationSource = 'browser' | 'search' | 'saved' | 'default';
+export type LocationSource = 'gps' | 'browser' | 'search' | 'saved' | 'default';
 
-export type LocationPermissionState = 'prompt' | 'granted' | 'denied' | 'unavailable' | 'timeout';
+export type LocationPermissionState =
+  | 'idle'
+  | 'requesting'
+  | 'prompt'
+  | 'granted'
+  | 'denied'
+  | 'unavailable'
+  | 'timeout'
+  | 'error';
 
 export interface NormalizedLocation {
   latitude: number;
   longitude: number;
+  accuracy?: number; // In meters
+  timestamp?: number;
   city: string;
   locality?: string;
   state?: string;
@@ -12,6 +22,7 @@ export interface NormalizedLocation {
   countryCode?: string;
   timezone?: string;
   source: LocationSource;
+  updatedAt?: string;
 }
 
 export interface ReverseGeocodeResult {
@@ -22,3 +33,4 @@ export interface ReverseGeocodeResult {
   countryCode?: string;
   timezone?: string;
 }
+

@@ -106,14 +106,16 @@ class LocationService {
     meta?: Partial<ReverseGeocodeResult>,
     source: NormalizedLocation['source'] = 'default'
   ): NormalizedLocation {
+    const latCard = lat >= 0 ? `${lat.toFixed(2)}°N` : `${Math.abs(lat).toFixed(2)}°S`;
+    const lonCard = lon >= 0 ? `${lon.toFixed(2)}°E` : `${Math.abs(lon).toFixed(2)}°W`;
     return {
       latitude: Number(lat.toFixed(4)),
       longitude: Number(lon.toFixed(4)),
-      city: meta?.city || 'Bengaluru',
+      city: meta?.city || `${latCard}, ${lonCard}`,
       locality: meta?.locality,
-      state: meta?.state || 'Karnataka',
-      country: meta?.country || 'India',
-      countryCode: meta?.countryCode || 'IN',
+      state: meta?.state,
+      country: meta?.country || '',
+      countryCode: meta?.countryCode,
       timezone: meta?.timezone,
       source
     };

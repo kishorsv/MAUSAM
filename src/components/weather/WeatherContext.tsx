@@ -16,6 +16,11 @@ export interface WeatherError {
 
 interface WeatherContextType {
   weather: WeatherPayload | null;
+  weatherData: WeatherPayload | null;
+  weatherLoading: boolean;
+  weatherError: WeatherError | null;
+  weatherLastUpdated: string | null;
+  weatherSource: string;
   status: WeatherDashboardStatus;
   error: WeatherError | null;
   isRefreshing: boolean;
@@ -27,6 +32,11 @@ interface WeatherContextType {
 
 const WeatherContext = createContext<WeatherContextType>({
   weather: null,
+  weatherData: null,
+  weatherLoading: true,
+  weatherError: null,
+  weatherLastUpdated: null,
+  weatherSource: 'open-meteo',
   status: 'LOADING',
   error: null,
   isRefreshing: false,
@@ -39,8 +49,8 @@ const WeatherContext = createContext<WeatherContextType>({
 // Central inflight promise map for request deduplication
 const inflightPromises = new Map<string, Promise<WeatherPayload>>();
 
-// Local storage cache key helper
-const getCacheKey = (lat: number, lon: number) => `mausam_weather_cache_${lat.toFixed(3)}_${lon.toFixed(3)}`;
+// Local storage cache key helper: weather:{latRounded}:{lonRounded}
+const getCacheKey = (lat: number, lon: number) => `weather:${lat.toFixed(2)}:${lon.toFixed(2)}`;
 
 // Save to client localStorage cache
 const saveToLocalCache = (lat: number, lon: number, payload: WeatherPayload) => {
@@ -74,6 +84,7 @@ export function WeatherProvider({ children }: { children: React.ReactNode }) {
 
   const periodicTimerRef = useRef<NodeJS.Timeout | null>(null);
   const prevCoordsRef = useRef<string>('');
+  const lastFetchTimeRef = useRef<number>(0);
 
   /**
    * Central fetcher with Deduplication, Timeout, and Retry
@@ -104,7 +115,7 @@ export function WeatherProvider({ children }: { children: React.ReactNode }) {
         if (country) queryParams.set('country', country);
         if (bypassCache) queryParams.set('refresh', 'true');
 
-        // Request timeout of 8 seconds
+        // Request timeout of 8 seconds with controller
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 8000);
 
@@ -146,9 +157,8 @@ export function WeatherProvider({ children }: { children: React.ReactNode }) {
   const loadWeather = useCallback(
     async (bypassCache: boolean = false) => {
       const { latitude, longitude, city, locality, state, country } = currentLocation;
-      const coordId = `${latitude},${longitude}`;
 
-      // Check online status
+      // Check browser network state
       if (typeof window !== 'undefined' && !navigator.onLine) {
         setIsOffline(true);
         setStatus('OFFLINE');
@@ -196,6 +206,7 @@ export function WeatherProvider({ children }: { children: React.ReactNode }) {
         setWeather(payload);
         setStatus('READY');
         setLastUpdated(payload.fetchedAt || new Date().toISOString());
+        lastFetchTimeRef.current = Date.now();
         saveToLocalCache(latitude, longitude, payload);
 
         // Synchronize with visual themes & cinematic weather world
@@ -254,6 +265,27 @@ export function WeatherProvider({ children }: { children: React.ReactNode }) {
     };
   }, [loadWeather]);
 
+  // Reactivate & refresh when app/tab becomes visible again or gains focus (if > 5m old)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine) {
+        if (lastFetchTimeRef.current && Date.now() - lastFetchTimeRef.current > 300000) {
+          loadWeather(false);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+    };
+  }, [loadWeather]);
+
   // Browser Network Connectivity Monitor
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -280,6 +312,11 @@ export function WeatherProvider({ children }: { children: React.ReactNode }) {
     <WeatherContext.Provider
       value={{
         weather,
+        weatherData: weather,
+        weatherLoading: status === 'LOADING',
+        weatherError: error,
+        weatherLastUpdated: lastUpdated,
+        weatherSource: weather?.provider || 'open-meteo',
         status,
         error,
         isRefreshing,

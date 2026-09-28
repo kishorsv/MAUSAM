@@ -8,54 +8,79 @@ interface LocationContextType {
   permissionState: LocationPermissionState;
   isDetecting: boolean;
   error: string | null;
+  accuracy: number | null;
+  isLowAccuracy: boolean;
+  accuracyWarning: string | null;
   showPromptBanner: boolean;
+  isWatching: boolean;
   requestDeviceLocation: () => Promise<NormalizedLocation | null>;
   setManualLocation: (loc: NormalizedLocation) => void;
   dismissPrompt: () => void;
   retryPermission: () => void;
+  toggleWatch: () => void;
 }
 
-const DEFAULT_LOCATION: NormalizedLocation = {
+// Initial neutral reference coordinates (used before location permission or manual selection)
+const INITIAL_LOCATION: NormalizedLocation = {
   latitude: 12.9716,
   longitude: 77.5946,
-  city: 'Bengaluru',
-  locality: 'Central',
-  state: 'Karnataka',
+  city: 'Detected Region',
+  locality: 'Regional Center',
+  state: 'India',
   country: 'India',
   countryCode: 'IN',
   timezone: 'Asia/Kolkata',
-  source: 'default'
+  source: 'default',
+  updatedAt: new Date().toISOString()
 };
 
 const STORAGE_KEY = 'mausam_selected_location';
 const PROMPT_DISMISSED_KEY = 'mausam_location_prompt_dismissed';
 
 const LocationContext = createContext<LocationContextType>({
-  currentLocation: DEFAULT_LOCATION,
-  permissionState: 'prompt',
+  currentLocation: INITIAL_LOCATION,
+  permissionState: 'idle',
   isDetecting: false,
   error: null,
+  accuracy: null,
+  isLowAccuracy: false,
+  accuracyWarning: null,
   showPromptBanner: false,
+  isWatching: false,
   requestDeviceLocation: async () => null,
   setManualLocation: () => {},
   dismissPrompt: () => {},
-  retryPermission: () => {}
+  retryPermission: () => {},
+  toggleWatch: () => {}
 });
 
 export function LocationProvider({ children }: { children: React.ReactNode }) {
-  const [currentLocation, setCurrentLocation] = useState<NormalizedLocation>(DEFAULT_LOCATION);
-  const [permissionState, setPermissionState] = useState<LocationPermissionState>('prompt');
+  const [currentLocation, setCurrentLocation] = useState<NormalizedLocation>(INITIAL_LOCATION);
+  const [permissionState, setPermissionState] = useState<LocationPermissionState>('idle');
   const [isDetecting, setIsDetecting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [accuracy, setAccuracy] = useState<number | null>(null);
   const [showPromptBanner, setShowPromptBanner] = useState<boolean>(false);
-  
-  // Guard to prevent repeated geolocation queries
+  const [isWatching, setIsWatching] = useState<boolean>(false);
+
+  // Watch position reference ID
+  const watchIdRef = useRef<number | null>(null);
   const hasAttemptedAutoDetect = useRef(false);
+
+  const isLowAccuracy = typeof accuracy === 'number' && accuracy > 3000;
+  const accuracyWarning = isLowAccuracy
+    ? `Location accuracy is low (~${Math.round(accuracy)}m). Weather may be less precise.`
+    : null;
 
   /**
    * Reverse geocodes coordinates via our resilient backend endpoint
    */
-  const reverseGeocodeCoords = async (lat: number, lon: number): Promise<NormalizedLocation> => {
+  const reverseGeocodeCoords = async (
+    lat: number,
+    lon: number,
+    accuracyVal?: number,
+    timestampVal?: number
+  ): Promise<NormalizedLocation> => {
     try {
       const res = await fetch(`/api/location/reverse?lat=${lat}&lon=${lon}`);
       if (res.ok) {
@@ -63,7 +88,10 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
         if (data.success && data.location) {
           return {
             ...data.location,
-            source: 'browser'
+            accuracy: accuracyVal,
+            timestamp: timestampVal,
+            updatedAt: new Date().toISOString(),
+            source: 'gps'
           };
         }
       }
@@ -71,12 +99,19 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       // Fall through to fallback
     }
 
+    const latCard = lat >= 0 ? `${lat.toFixed(2)}°N` : `${Math.abs(lat).toFixed(2)}°S`;
+    const lonCard = lon >= 0 ? `${lon.toFixed(2)}°E` : `${Math.abs(lon).toFixed(2)}°W`;
+
     return {
       latitude: Number(lat.toFixed(4)),
       longitude: Number(lon.toFixed(4)),
-      city: `${lat.toFixed(2)}°, ${lon.toFixed(2)}°`,
+      accuracy: accuracyVal,
+      timestamp: timestampVal,
+      city: `${latCard}, ${lonCard}`,
+      locality: 'Current Location',
       country: 'Live GPS',
-      source: 'browser'
+      source: 'gps',
+      updatedAt: new Date().toISOString()
     };
   };
 
@@ -84,20 +119,31 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
    * Primary action to request browser GPS coordinates
    */
   const requestDeviceLocation = useCallback(async (): Promise<NormalizedLocation | null> => {
-    if (typeof window === 'undefined' || !navigator.geolocation) {
+    if (typeof window === 'undefined') return null;
+
+    // 1. Secure context validation (HTTPS check)
+    if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      setPermissionState('error');
+      setError('Location access requires a secure HTTPS connection.');
+      return null;
+    }
+
+    // 2. Browser Geolocation support check
+    if (!navigator.geolocation) {
       setPermissionState('unavailable');
-      setError('Geolocation is not supported by your browser.');
+      setError("We couldn't determine your location. Check your device location services and try again.");
       return null;
     }
 
     setIsDetecting(true);
+    setPermissionState('requesting');
     setError(null);
 
     return new Promise<NormalizedLocation | null>((resolve) => {
       const timeoutTimer = setTimeout(() => {
         setIsDetecting(false);
         setPermissionState('timeout');
-        setError('Location detection timed out. Please try again or search manually.');
+        setError('Location request timed out. Try again.');
         resolve(null);
       }, 10000);
 
@@ -107,16 +153,15 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
           setPermissionState('granted');
           setShowPromptBanner(false);
 
-          try {
-            const geocoded = await reverseGeocodeCoords(
-              position.coords.latitude,
-              position.coords.longitude
-            );
+          const { latitude, longitude, accuracy: acc } = position.coords;
+          const posTimestamp = position.timestamp;
+          setAccuracy(acc);
 
+          try {
+            const geocoded = await reverseGeocodeCoords(latitude, longitude, acc, posTimestamp);
             setCurrentLocation(geocoded);
             setIsDetecting(false);
 
-            // Persist to local storage
             try {
               localStorage.setItem(STORAGE_KEY, JSON.stringify(geocoded));
             } catch {}
@@ -124,11 +169,15 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
             resolve(geocoded);
           } catch {
             const fallback: NormalizedLocation = {
-              latitude: Number(position.coords.latitude.toFixed(4)),
-              longitude: Number(position.coords.longitude.toFixed(4)),
-              city: 'Detected Location',
+              latitude: Number(latitude.toFixed(4)),
+              longitude: Number(longitude.toFixed(4)),
+              accuracy: acc,
+              timestamp: posTimestamp,
+              city: `${latitude.toFixed(2)}°, ${longitude.toFixed(2)}°`,
+              locality: 'Current Location',
               country: 'Live GPS',
-              source: 'browser'
+              source: 'gps',
+              updatedAt: new Date().toISOString()
             };
             setCurrentLocation(fallback);
             setIsDetecting(false);
@@ -141,13 +190,16 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
 
           if (geoError.code === geoError.PERMISSION_DENIED) {
             setPermissionState('denied');
-            setError('Location access was denied. You can search for your city manually.');
+            setError('Location permission was denied. Allow location access in your browser settings and try again.');
           } else if (geoError.code === geoError.POSITION_UNAVAILABLE) {
             setPermissionState('unavailable');
-            setError('Location information is currently unavailable.');
-          } else {
+            setError("We couldn't determine your location. Check your device location services and try again.");
+          } else if (geoError.code === geoError.TIMEOUT) {
             setPermissionState('timeout');
-            setError('Location request timed out.');
+            setError('Location request timed out. Try again.');
+          } else {
+            setPermissionState('error');
+            setError('Unable to detect your location.');
           }
 
           resolve(null);
@@ -155,11 +207,41 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
         {
           enableHighAccuracy: true,
           timeout: 9000,
-          maximumAge: 300000 // 5 minutes cache
+          maximumAge: 60000 // 1 minute max cache for real GPS freshness
         }
       );
     });
   }, []);
+
+  /**
+   * Watch position toggle (for dynamic GPS tracking)
+   */
+  const toggleWatch = useCallback(() => {
+    if (typeof window === 'undefined' || !navigator.geolocation) return;
+
+    if (isWatching) {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+      setIsWatching(false);
+    } else {
+      setIsWatching(true);
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        async (position) => {
+          const { latitude, longitude, accuracy: acc } = position.coords;
+          setAccuracy(acc);
+          const geocoded = await reverseGeocodeCoords(latitude, longitude, acc, position.timestamp);
+          setCurrentLocation(geocoded);
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(geocoded));
+          } catch {}
+        },
+        () => {},
+        { enableHighAccuracy: true, maximumAge: 30000 }
+      );
+    }
+  }, [isWatching]);
 
   /**
    * Manual location selection (e.g. from Search Modal or Map)
@@ -167,7 +249,9 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
   const setManualLocation = useCallback((loc: NormalizedLocation) => {
     const normalized: NormalizedLocation = {
       ...loc,
-      source: 'search'
+      accuracy: undefined,
+      source: 'search',
+      updatedAt: new Date().toISOString()
     };
     setCurrentLocation(normalized);
     setShowPromptBanner(false);
@@ -202,14 +286,16 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
         if (parsed && typeof parsed.latitude === 'number' && typeof parsed.longitude === 'number') {
           setCurrentLocation({
             ...parsed,
-            source: 'saved'
+            source: parsed.source || 'saved'
           });
+          if (typeof parsed.accuracy === 'number') {
+            setAccuracy(parsed.accuracy);
+          }
           hasSavedLocation = true;
         }
       }
     } catch {}
 
-    // Check if user previously dismissed the prompt during this session
     const isDismissed = sessionStorage.getItem(PROMPT_DISMISSED_KEY) === 'true';
 
     // 2. Query browser permission state where supported
@@ -217,44 +303,48 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       navigator.permissions
         .query({ name: 'geolocation' })
         .then((permissionStatus) => {
-          setPermissionState(permissionStatus.state as LocationPermissionState);
+          const state = permissionStatus.state as LocationPermissionState;
+          setPermissionState(state);
 
-          if (permissionStatus.state === 'granted') {
+          if (state === 'granted') {
             // Permission already granted: detect location silently
             if (!hasAttemptedAutoDetect.current) {
               hasAttemptedAutoDetect.current = true;
               requestDeviceLocation();
             }
-          } else if (permissionStatus.state === 'prompt') {
-            // If user has not saved a location and hasn't dismissed banner, show prompt banner
+          } else if (state === 'prompt') {
             if (!hasSavedLocation && !isDismissed) {
               setShowPromptBanner(true);
             }
-          } else if (permissionStatus.state === 'denied') {
-            // Don't spam, keep default or saved location
+          } else if (state === 'denied') {
             setPermissionState('denied');
           }
 
-          // Listen for permission state changes (e.g. user toggles in browser address bar)
+          // Reactive listener for permission toggle
           permissionStatus.onchange = () => {
-            setPermissionState(permissionStatus.state as LocationPermissionState);
-            if (permissionStatus.state === 'granted') {
+            const nextState = permissionStatus.state as LocationPermissionState;
+            setPermissionState(nextState);
+            if (nextState === 'granted') {
               requestDeviceLocation();
             }
           };
         })
         .catch(() => {
-          // Permissions API failed, show prompt if no saved location
           if (!hasSavedLocation && !isDismissed) {
             setShowPromptBanner(true);
           }
         });
     } else {
-      // Browser doesn't support navigator.permissions
       if (!hasSavedLocation && !isDismissed) {
         setShowPromptBanner(true);
       }
     }
+
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
   }, [requestDeviceLocation]);
 
   return (
@@ -264,11 +354,16 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
         permissionState,
         isDetecting,
         error,
+        accuracy,
+        isLowAccuracy,
+        accuracyWarning,
         showPromptBanner,
+        isWatching,
         requestDeviceLocation,
         setManualLocation,
         dismissPrompt,
-        retryPermission
+        retryPermission,
+        toggleWatch
       }}
     >
       {children}
