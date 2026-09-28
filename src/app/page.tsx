@@ -69,8 +69,10 @@ import { Sidebar } from '@/components/navigation/Sidebar';
 import { AIAssistantHeroCard } from '@/components/ai/AIAssistantHeroCard';
 import { GlassPanel } from '@/components/common/GlassPanel';
 import { FeatureDock } from '@/components/features/FeatureDock';
+import { ExploreMausamGrid } from '@/components/features/ExploreMausamGrid';
 import { ActiveFeatureWorldCard } from '@/components/features/ActiveFeatureWorldCard';
 import { VoiceAssistantBar } from '@/components/ai/VoiceAssistantBar';
+import { CommandPalette } from '@/components/navigation/CommandPalette';
 import { FeatureWorldId } from '@/lib/theme/scene-registry';
 import { weatherSceneController } from '@/lib/theme/weather-scene-controller';
 
@@ -84,7 +86,7 @@ import {
 } from 'lucide-react';
 
 export default function HomePage() {
-  const { visualState, setWeatherForTheme } = useTheme();
+  const { visualState, setWeatherForTheme, openThemeModal } = useTheme();
   const [weather, setWeather] = useState<WeatherPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -104,8 +106,22 @@ export default function HomePage() {
   // UI Modals & Settings
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isAIOpen, setIsAIOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isVoiceOpen, setIsVoiceOpen] = useState(false);
   const [aiInitialPrompt, setAiInitialPrompt] = useState<string | undefined>(undefined);
   const [showExplanationModal, setShowExplanationModal] = useState(false);
+
+  // Global Command Menu Keyboard Shortcut (⌘K / Ctrl+K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const handleOpenAIWithPrompt = (prompt?: string) => {
     setAiInitialPrompt(prompt);
@@ -326,7 +342,11 @@ export default function HomePage() {
       style={{ color: 'var(--foreground)' }}
     >
       {/* Premium Desktop Sidebar Navigation */}
-      <Sidebar onOpenAI={() => handleOpenAIWithPrompt()} />
+      <Sidebar 
+        onOpenAI={() => handleOpenAIWithPrompt()}
+        onOpenVoice={() => setIsVoiceOpen(true)}
+        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+      />
 
       {/* Main Content Dashboard Area */}
       <div className="flex-1 flex flex-col min-w-0 pb-32 sm:pb-28">
@@ -339,13 +359,14 @@ export default function HomePage() {
           onLanguageChange={handleLanguageChange}
           onOpenSearch={() => setIsSearchOpen(true)}
           onOpenAI={() => handleOpenAIWithPrompt()}
+          onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
           unreadCount={unreadNotifications}
           userName="Priya"
           isOffline={isOffline}
         />
 
         {/* Main Content Dashboard */}
-        <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 space-y-6">
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-8 lg:px-10 py-6 sm:py-8 space-y-8 sm:space-y-10">
           {/* Lifestyle Persona Dynamic Toggles Bar */}
           <GlassPanel 
             variant="card"
@@ -597,6 +618,12 @@ export default function HomePage() {
             {/* Live Telemetry Chronological Intelligence Feed */}
             <IntelligenceFeed />
 
+            {/* Explore MAUSAM & Specialized Observation Centers */}
+            <ExploreMausamGrid
+              activeFeatureWorld={activeFeatureWorld}
+              onSelectFeatureWorld={handleSelectFeatureWorld}
+            />
+
             {/* Interactive Weather Radar Map */}
             <WeatherMapComponent weather={weather} />
 
@@ -614,19 +641,32 @@ export default function HomePage() {
       <VoiceAssistantBar
         weather={weather}
         selectedFeature={activeFeatureWorld}
+        isOpenExternal={isVoiceOpen}
+        onCloseExternal={() => setIsVoiceOpen(false)}
         onOpenFullAssistant={handleOpenAIWithPrompt}
       />
 
-      {/* Floating AI Assistant Trigger Button (Bottom Right) */}
-      <div className="fixed bottom-24 sm:bottom-8 right-6 z-30 hidden lg:block">
-        <button
-          onClick={() => handleOpenAIWithPrompt()}
-          className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-gradient-to-r from-violet-600 via-primary-600 to-cyan-500 hover:scale-105 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-2xl transition-all shadow-glow-primary border border-white/20"
-        >
-          <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
-          <span>Full Workspace</span>
-        </button>
-      </div>
+      {/* Global Keyboard-Accessible Command Palette (⌘K) */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onOpenAI={() => {
+          setIsCommandPaletteOpen(false);
+          handleOpenAIWithPrompt();
+        }}
+        onOpenVoice={() => {
+          setIsCommandPaletteOpen(false);
+          setIsVoiceOpen(true);
+        }}
+        onOpenTheme={() => {
+          setIsCommandPaletteOpen(false);
+          openThemeModal();
+        }}
+        onSelectFeature={(featId) => {
+          handleSelectFeatureWorld(featId);
+        }}
+        onLanguageChange={handleLanguageChange}
+      />
 
       {/* Bottom Navigation for Mobile Devices */}
       <MobileBottomNav unreadAlerts={weather?.alerts.length || 0} />

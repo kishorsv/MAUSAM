@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Mic, MicOff, Volume2, VolumeX, Send, Sparkles, X, ChevronUp, Bot, ArrowRight } from 'lucide-react';
+import { Mic, MicOff, Volume2, VolumeX, Send, Sparkles, X, Bot, ArrowRight } from 'lucide-react';
 import { GlassPanel } from '@/components/common/GlassPanel';
 import { WeatherPayload } from '@/lib/weather/types';
 import { FeatureWorldId } from '@/lib/theme/scene-registry';
@@ -9,6 +9,8 @@ import { FeatureWorldId } from '@/lib/theme/scene-registry';
 interface VoiceAssistantBarProps {
   weather: WeatherPayload | null;
   selectedFeature: FeatureWorldId | null;
+  isOpenExternal?: boolean;
+  onCloseExternal?: () => void;
   onOpenFullAssistant?: (initialPrompt?: string) => void;
 }
 
@@ -17,6 +19,8 @@ type AssistantState = 'IDLE' | 'LISTENING' | 'PROCESSING' | 'RESPONDING' | 'ERRO
 export function VoiceAssistantBar({
   weather,
   selectedFeature,
+  isOpenExternal,
+  onCloseExternal,
   onOpenFullAssistant
 }: VoiceAssistantBarProps) {
   const [state, setState] = useState<AssistantState>('IDLE');
@@ -30,6 +34,13 @@ export function VoiceAssistantBar({
 
   const recognitionRef = useRef<any>(null);
   const synthRef = useRef<SpeechSynthesis | null>(null);
+
+  // Sync with external opener (e.g. from Sidebar or Command Palette)
+  useEffect(() => {
+    if (isOpenExternal !== undefined) {
+      setIsExpanded(isOpenExternal);
+    }
+  }, [isOpenExternal]);
 
   // Check Web Speech API availability
   useEffect(() => {
@@ -103,7 +114,7 @@ export function VoiceAssistantBar({
     if (!isSpeechSynthesisEnabled || !synthRef.current) return;
     try {
       synthRef.current.cancel(); // Stop prior speech
-      const cleanedText = text.replace(/[*#_`]/g, ''); // strip markdown chars
+      const cleanedText = text.replace(/[*#_`]/g, ''); // strip markdown
       const utterance = new SpeechSynthesisUtterance(cleanedText);
       utterance.rate = 1.05;
       utterance.pitch = 1.0;
@@ -126,7 +137,7 @@ export function VoiceAssistantBar({
       if (synthRef.current) synthRef.current.cancel();
       try {
         recognitionRef.current?.start();
-      } catch (e) {
+      } catch {
         recognitionRef.current?.stop();
         setTimeout(() => recognitionRef.current?.start(), 150);
       }
@@ -171,7 +182,7 @@ export function VoiceAssistantBar({
       });
 
       if (!response.ok) {
-        throw new Error(`AI service responded with HTTP ${response.status}`);
+        throw new Error(`AI service error (HTTP ${response.status})`);
       }
 
       setState('RESPONDING');
@@ -200,7 +211,7 @@ export function VoiceAssistantBar({
                   setResponseMessage(fullText);
                 }
               } catch {
-                // Ignore chunk parse errors
+                // Ignore parse errors
               }
             }
           }
@@ -221,11 +232,10 @@ export function VoiceAssistantBar({
     }
   };
 
-  // Feature-aware quick prompt suggestions
   const getFeaturePrompt = () => {
     switch (selectedFeature) {
       case 'agriculture':
-        return 'Is the soil and humidity good for spraying crops today?';
+        return 'Is the soil and humidity good for crops today?';
       case 'fitness':
         return 'What is the best 1-hour window for outdoor running today?';
       case 'rain':
@@ -235,178 +245,175 @@ export function VoiceAssistantBar({
       case 'sunny':
         return 'What is the UV index and peak sunlight hours today?';
       default:
-        return 'What is the complete weather outlook for today?';
+        return 'Ask a weather question or tap the mic...';
     }
   };
 
+  const handleClose = () => {
+    setIsExpanded(false);
+    if (synthRef.current) synthRef.current.cancel();
+    if (onCloseExternal) onCloseExternal();
+  };
+
   return (
-    <div className="fixed bottom-4 inset-x-0 z-40 max-w-3xl mx-auto px-4 pointer-events-none">
-      <div className="pointer-events-auto">
-        {/* Expanded Response Popover */}
-        {isExpanded && (
-          <GlassPanel
-            variant="elevated"
-            glow="primary"
-            className="mb-3 p-5 rounded-3xl animate-in slide-in-from-bottom-3 duration-300 border border-white/20 shadow-2xl relative overflow-hidden"
-          >
-            <div className="flex items-start justify-between gap-3 mb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-[var(--primary)]/20 border border-[var(--primary)]/40 flex items-center justify-center text-[var(--primary)] shadow-sm">
-                  <Bot className="w-4 h-4 animate-pulse" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-extrabold text-[var(--foreground)] flex items-center gap-2">
-                    <span>MAUSAM AI Intelligence</span>
-                    {selectedFeature && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-[var(--primary)] font-mono uppercase">
-                        {selectedFeature} mode
-                      </span>
-                    )}
-                  </h4>
-                  <p className="text-[11px] text-[var(--foreground-muted)]">
-                    {state === 'PROCESSING' ? 'Synthesizing live atmospheric telemetry...' : 'Real-time contextual response'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setIsSpeechSynthesisEnabled(!isSpeechSynthesisEnabled)}
-                  className={`p-2 rounded-xl transition-colors ${
-                    isSpeechSynthesisEnabled ? 'bg-white/10 text-white' : 'text-slate-500 hover:text-white'
-                  }`}
-                  title={isSpeechSynthesisEnabled ? 'Mute voice audio' : 'Unmute voice audio'}
-                >
-                  {isSpeechSynthesisEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-                </button>
-                <button
-                  onClick={() => {
-                    setIsExpanded(false);
-                    if (synthRef.current) synthRef.current.cancel();
-                  }}
-                  className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* Response Output */}
-            <div className="text-sm text-slate-200 leading-relaxed font-sans max-h-56 overflow-y-auto pr-2 scrollbar-thin">
-              {state === 'PROCESSING' ? (
-                <div className="flex items-center gap-3 py-4 text-slate-400">
-                  <div className="flex gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-[var(--primary)] animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-2 h-2 rounded-full bg-[var(--primary)] animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-2 h-2 rounded-full bg-[var(--primary)] animate-bounce" style={{ animationDelay: '300ms' }} />
-                  </div>
-                  <span className="text-xs font-mono">Analyzing radar, AQI, and local meteorological data...</span>
-                </div>
-              ) : state === 'ERROR' ? (
-                <div className="text-rose-400 text-xs py-2">{errorMessage}</div>
-              ) : (
-                <div className="whitespace-pre-line">{responseMessage}</div>
-              )}
-            </div>
-
-            {/* Quick action to open full drawer */}
-            {onOpenFullAssistant && (
-              <div className="mt-3 pt-3 border-t border-white/10 flex justify-end">
-                <button
-                  onClick={() => {
-                    setIsExpanded(false);
-                    onOpenFullAssistant(inputText || responseMessage);
-                  }}
-                  className="text-xs font-bold text-[var(--primary)] hover:underline flex items-center gap-1"
-                >
-                  <span>Open Full AI Chat Workspace</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            )}
-          </GlassPanel>
-        )}
-
-        {/* Main Floating Voice & Chat Bar */}
-        <div 
-          className="p-2 sm:p-2.5 rounded-full border shadow-2xl backdrop-blur-2xl flex items-center gap-2.5 transition-all duration-300 relative group"
-          style={{
-            background: 'var(--surface-glass)',
-            borderColor: state === 'LISTENING' ? 'var(--primary)' : 'rgba(255, 255, 255, 0.15)',
-            boxShadow: state === 'LISTENING' ? '0 0 35px -5px var(--primary)' : 'var(--shadow)'
-          }}
+    <div className="fixed bottom-6 right-6 z-40 select-none">
+      {/* 1. EXPANDED VOICE ASSISTANT POPUP PANEL */}
+      {isExpanded ? (
+        <GlassPanel
+          variant="elevated"
+          glow="primary"
+          className="w-[92vw] sm:w-[420px] p-5 rounded-3xl animate-in slide-in-from-bottom-5 zoom-in-95 duration-200 border border-white/20 shadow-2xl relative overflow-hidden"
         >
-          {/* Top Specular Line */}
-          <div className="absolute inset-x-8 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/30 to-transparent pointer-events-none" />
-
-          {/* AI Sparkle Icon / Context Pill */}
-          <div className="pl-2 shrink-0 flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-indigo-600 flex items-center justify-center text-white shadow-md">
-              <Sparkles className="w-4 h-4 animate-spin-slow" />
+          {/* Header */}
+          <div className="flex items-start justify-between gap-3 mb-3 pb-3 border-b border-white/10">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-[var(--primary)]/20 border border-[var(--primary)]/40 flex items-center justify-center text-[var(--primary)] shadow-sm">
+                <Bot className="w-4 h-4 animate-pulse" />
+              </div>
+              <div>
+                <h4 className="text-sm font-extrabold text-[var(--foreground)] flex items-center gap-2">
+                  <span>MAUSAM Voice AI</span>
+                  {selectedFeature && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-[var(--primary)] font-mono uppercase">
+                      {selectedFeature}
+                    </span>
+                  )}
+                </h4>
+                <p className="text-[11px] text-[var(--foreground-muted)]">
+                  {state === 'LISTENING' ? 'Listening...' : state === 'PROCESSING' ? 'Synthesizing...' : 'Speech-enabled assistant'}
+                </p>
+              </div>
             </div>
-            <span className="text-xs font-extrabold text-[var(--foreground)] hidden sm:inline tracking-tight">
-              Ask MAUSAM
-            </span>
+
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setIsSpeechSynthesisEnabled(!isSpeechSynthesisEnabled)}
+                className={`p-1.5 rounded-xl transition-colors ${
+                  isSpeechSynthesisEnabled ? 'bg-white/10 text-white' : 'text-slate-500 hover:text-white'
+                }`}
+                title={isSpeechSynthesisEnabled ? 'Mute voice audio' : 'Unmute voice audio'}
+              >
+                {isSpeechSynthesisEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={handleClose}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                title="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
-          {/* Center Input / Listening Waveform */}
-          <div className="flex-1 min-w-0">
+          {/* Response Output Container */}
+          <div className="text-xs sm:text-sm text-slate-200 leading-relaxed font-sans min-h-[90px] max-h-56 overflow-y-auto pr-1 mb-3 scrollbar-thin">
             {state === 'LISTENING' ? (
-              <div className="flex items-center gap-3 px-2 py-1">
-                {/* Waveform animation */}
-                <div className="flex items-center gap-1">
-                  <span className="w-1 h-3.5 bg-cyan-400 rounded-full animate-pulse" />
-                  <span className="w-1 h-6 bg-[var(--primary)] rounded-full animate-bounce" style={{ animationDelay: '100ms' }} />
-                  <span className="w-1 h-4 bg-purple-400 rounded-full animate-pulse" style={{ animationDelay: '200ms' }} />
-                  <span className="w-1 h-7 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                  <span className="w-1 h-3 bg-[var(--primary)] rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
+              <div className="flex flex-col items-center justify-center py-6 text-center space-y-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-4 bg-cyan-400 rounded-full animate-pulse" />
+                  <span className="w-1.5 h-8 bg-[var(--primary)] rounded-full animate-bounce" style={{ animationDelay: '100ms' }} />
+                  <span className="w-1.5 h-5 bg-purple-400 rounded-full animate-pulse" style={{ animationDelay: '200ms' }} />
+                  <span className="w-1.5 h-10 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  <span className="w-1.5 h-4 bg-[var(--primary)] rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
                 </div>
-                <span className="text-xs font-bold text-cyan-300 truncate">
-                  {interimTranscript || 'Listening to your weather question...'}
-                </span>
+                <p className="text-xs font-bold text-cyan-300">
+                  {interimTranscript || 'Listening to your speech...'}
+                </p>
               </div>
+            ) : state === 'PROCESSING' ? (
+              <div className="flex items-center gap-3 py-6 text-slate-400 justify-center">
+                <div className="flex gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[var(--primary)] animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-2 h-2 rounded-full bg-[var(--primary)] animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-2 h-2 rounded-full bg-[var(--primary)] animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+                <span className="text-xs font-mono">Analyzing atmospheric telemetry...</span>
+              </div>
+            ) : state === 'ERROR' ? (
+              <div className="text-rose-400 text-xs py-4 text-center">{errorMessage}</div>
+            ) : responseMessage ? (
+              <div className="whitespace-pre-line py-1">{responseMessage}</div>
             ) : (
-              <input
-                type="text"
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleSendMessage(inputText);
-                  }
-                }}
-                placeholder={getFeaturePrompt()}
-                className="w-full bg-transparent border-0 outline-none text-xs sm:text-sm text-[var(--foreground)] placeholder-slate-400 px-2 py-1"
-              />
+              <div className="text-xs text-slate-400 py-3 text-center">
+                Tap the microphone below to ask a question, or type your query.
+              </div>
             )}
           </div>
 
-          {/* Actions: Send / Mic */}
-          <div className="flex items-center gap-1.5 pr-1">
+          {/* Input & Microphone Bar */}
+          <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-white/5 border border-white/10">
+            <input
+              type="text"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSendMessage(inputText);
+              }}
+              placeholder={getFeaturePrompt()}
+              className="flex-1 bg-transparent border-0 outline-none text-xs text-[var(--foreground)] placeholder-slate-400 px-2 py-1"
+            />
             {inputText.trim() ? (
               <button
                 onClick={() => handleSendMessage(inputText)}
-                className="p-2.5 rounded-full bg-[var(--primary)] text-white hover:brightness-110 active:scale-95 transition-all shadow-md"
-                title="Send query"
+                className="p-2 rounded-xl bg-[var(--primary)] text-white hover:brightness-110 transition-all shadow-sm"
               >
-                <Send className="w-4 h-4" />
+                <Send className="w-3.5 h-3.5" />
               </button>
             ) : (
               <button
                 onClick={toggleListening}
-                className={`p-2.5 rounded-full transition-all duration-300 relative ${
+                className={`p-2 rounded-xl transition-all ${
                   state === 'LISTENING'
-                    ? 'bg-rose-500 text-white animate-pulse shadow-[0_0_20px_rgba(244,63,94,0.6)]'
-                    : 'bg-white/10 hover:bg-white/20 text-slate-200 hover:text-white'
+                    ? 'bg-rose-500 text-white animate-pulse shadow-md'
+                    : 'bg-white/10 hover:bg-white/20 text-slate-200'
                 }`}
-                title={state === 'LISTENING' ? 'Stop listening' : 'Speak with microphone'}
+                title={state === 'LISTENING' ? 'Stop listening' : 'Start microphone'}
               >
-                {state === 'LISTENING' ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                {state === 'LISTENING' ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
               </button>
             )}
           </div>
-        </div>
-      </div>
+
+          {/* Open full drawer footer link */}
+          {onOpenFullAssistant && (
+            <div className="mt-3 pt-2 border-t border-white/5 flex justify-end">
+              <button
+                onClick={() => {
+                  setIsExpanded(false);
+                  onOpenFullAssistant(inputText || responseMessage);
+                }}
+                className="text-[11px] font-bold text-[var(--primary)] hover:underline flex items-center gap-1"
+              >
+                <span>Open Full Chat Drawer</span>
+                <ArrowRight className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+        </GlassPanel>
+      ) : (
+        /* 2. COMPACT FLOATING CAPSULE BUTTON (Resting State) */
+        <button
+          onClick={() => setIsExpanded(true)}
+          className="flex items-center gap-2.5 px-4 py-3 rounded-full border shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95 group text-white relative overflow-hidden backdrop-blur-2xl"
+          style={{
+            background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.85), rgba(6, 182, 212, 0.85))',
+            borderColor: 'rgba(255, 255, 255, 0.25)',
+            boxShadow: '0 10px 30px -5px rgba(139, 92, 246, 0.5)'
+          }}
+          title="Open Voice & AI Assistant"
+        >
+          {/* Specular line */}
+          <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none" />
+
+          <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+          <span className="font-extrabold text-xs sm:text-sm tracking-tight drop-shadow-sm">
+            Ask MAUSAM
+          </span>
+          <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <Mic className="w-3.5 h-3.5 text-white" />
+          </div>
+        </button>
+      )}
     </div>
   );
 }
