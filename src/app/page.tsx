@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Header } from '@/components/navigation/Header';
 import { MobileBottomNav } from '@/components/navigation/MobileBottomNav';
 import { WeatherHero } from '@/components/weather/WeatherHero';
@@ -10,6 +10,9 @@ import { AQICard } from '@/components/weather/AQICard';
 import { WeatherAlert } from '@/components/weather/WeatherAlert';
 import { ActivityScore } from '@/components/weather/ActivityScore';
 import { SmartRecommendation } from '@/components/weather/SmartRecommendation';
+import { useLocation } from '@/components/location/LocationContext';
+import { useWeather } from '@/components/weather/WeatherContext';
+import { LocationPermissionBanner } from '@/components/location/LocationPermissionBanner';
 import dynamic from 'next/dynamic';
 
 const LocationSearchModal = dynamic(
@@ -54,6 +57,7 @@ import { GeneratedInsight } from '@/lib/automation/rules';
 import { ContextualScore } from '@/lib/scores/weather-scores';
 import { UserPreferences, SavedLocation } from '@/lib/db/types';
 import { Language, translations } from '@/lib/i18n/translations';
+import { formatTimeAgo } from '@/lib/utils';
 
 // Advanced Intelligence & Decision Engines
 import { rainNowcastingEngine, RainNowcastResult } from '@/lib/weather/nowcast';
@@ -87,9 +91,17 @@ import {
 
 export default function HomePage() {
   const { visualState, setWeatherForTheme, openThemeModal } = useTheme();
-  const [weather, setWeather] = useState<WeatherPayload | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { currentLocation, requestDeviceLocation, setManualLocation } = useLocation();
+  const { 
+    weather, 
+    status, 
+    error: weatherError, 
+    isRefreshing, 
+    isOffline: isWeatherOffline, 
+    lastUpdated, 
+    refreshWeather, 
+    retry 
+  } = useWeather();
   
   // Personalization State
   const [prioritizedCards, setPrioritizedCards] = useState<PrioritizedCard[]>([]);
@@ -110,6 +122,20 @@ export default function HomePage() {
   const [isVoiceOpen, setIsVoiceOpen] = useState(false);
   const [aiInitialPrompt, setAiInitialPrompt] = useState<string | undefined>(undefined);
   const [showExplanationModal, setShowExplanationModal] = useState(false);
+  const [language, setLanguage] = useState<Language>('en');
+  const [unreadNotifications, setUnreadNotifications] = useState(2);
+  const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([]);
+  const [activeFeatureWorld, setActiveFeatureWorld] = useState<FeatureWorldId | null>(null);
+
+  // Unified selectedLocation object derived directly from currentLocation
+  const selectedLocation: WeatherLocation = useMemo(() => ({
+    name: currentLocation.city,
+    region: currentLocation.locality || currentLocation.state,
+    country: currentLocation.country || '',
+    lat: currentLocation.latitude,
+    lon: currentLocation.longitude,
+    timezone: currentLocation.timezone
+  }), [currentLocation]);
 
   // Global Command Menu Keyboard Shortcut (⌘K / Ctrl+K)
   useEffect(() => {
@@ -127,18 +153,6 @@ export default function HomePage() {
     setAiInitialPrompt(prompt);
     setIsAIOpen(true);
   };
-  const [selectedLocation, setSelectedLocation] = useState<WeatherLocation>({
-    name: 'Bengaluru',
-    region: 'Karnataka',
-    country: 'India',
-    lat: 12.9716,
-    lon: 77.5946
-  });
-  const [language, setLanguage] = useState<Language>('en');
-  const [unreadNotifications, setUnreadNotifications] = useState(2);
-  const [isOffline, setIsOffline] = useState(false);
-  const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([]);
-  const [activeFeatureWorld, setActiveFeatureWorld] = useState<FeatureWorldId | null>(null);
 
   const handleSelectFeatureWorld = (featureId: FeatureWorldId) => {
     if (activeFeatureWorld === featureId) {
@@ -149,21 +163,6 @@ export default function HomePage() {
       weatherSceneController.selectFeature(featureId);
     }
   };
-
-  // Browser Network Connectivity Monitor
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setIsOffline(!navigator.onLine);
-      const handleOnline = () => setIsOffline(false);
-      const handleOffline = () => setIsOffline(true);
-      window.addEventListener('online', handleOnline);
-      window.addEventListener('offline', handleOffline);
-      return () => {
-        window.removeEventListener('online', handleOnline);
-        window.removeEventListener('offline', handleOffline);
-      };
-    }
-  }, []);
 
   // Fetch Hyperlocal Saved Microclimate Locations
   useEffect(() => {
@@ -183,41 +182,19 @@ export default function HomePage() {
     fetchSavedLocations();
   }, []);
 
-  // Fetch Weather and execute Personalization Engine
-  const loadWeatherAndPersonalization = useCallback(async (loc: WeatherLocation, prefsOverride?: UserPreferences) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      // 1. Fetch Real Weather Data via Backend Provider
-      const weatherRes = await fetch(
-        `/api/weather/current?lat=${loc.lat}&lon=${loc.lon}&name=${encodeURIComponent(loc.name)}&region=${encodeURIComponent(loc.region || '')}&country=${encodeURIComponent(loc.country || '')}`
-      );
-
-      if (!weatherRes.ok) {
-        throw new Error("Live weather data temporarily unavailable.");
-      }
-
-      const weatherData: WeatherPayload = await weatherRes.json();
-      setWeather(weatherData);
-      setWeatherForTheme(weatherData);
-      weatherSceneController.updateWeather(weatherData);
-
-      // FAST FIRST PAINT: Compute card priorities instantly in 0ms on the client!
-      const immediateCards = personalizationEngine.calculateCardPriorities(weatherData, prefsOverride || preferences);
-      const immediateWindows = personalizationEngine.calculateFitnessWindows(weatherData.hourly, weatherData.airQuality?.aqi);
+  // Synchronize Personalization & AI insights whenever real weather payload arrives
+  useEffect(() => {
+    if (weather) {
+      const immediateCards = personalizationEngine.calculateCardPriorities(weather, preferences);
+      const immediateWindows = personalizationEngine.calculateFitnessWindows(weather.hourly, weather.airQuality?.aqi);
       setPrioritizedCards(immediateCards);
       setFitnessWindows(immediateWindows);
-      setLoading(false); // Immediately dismiss skeleton & reveal core dashboard
 
-      // 2. Non-blocking Asynchronous Background Synchronization
+      // Asynchronous Background Personalization Synchronization
       fetch('/api/personalization', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          weather: weatherData,
-          preferences: prefsOverride || preferences
-        })
+        body: JSON.stringify({ weather, preferences })
       })
         .then((res) => (res.ok ? res.json() : null))
         .then((pData) => {
@@ -233,39 +210,8 @@ export default function HomePage() {
           }
         })
         .catch(() => {});
-    } catch (err: any) {
-      setError(err.message || "Failed to load weather data.");
-      setLoading(false);
     }
-  }, [preferences, setWeatherForTheme]);
-
-  // Initial mount load
-  useEffect(() => {
-    loadWeatherAndPersonalization(selectedLocation);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Handle GPS Current Device Location
-  const handleUseCurrentLocation = () => {
-    if (navigator.geolocation) {
-      setLoading(true);
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const loc: WeatherLocation = {
-            name: 'Device GPS Location',
-            country: 'Live Sensor',
-            lat: pos.coords.latitude,
-            lon: pos.coords.longitude
-          };
-          setSelectedLocation(loc);
-          loadWeatherAndPersonalization(loc);
-        },
-        () => {
-          // If permission denied, keep current location
-          setLoading(false);
-        }
-      );
-    }
-  };
+  }, [weather, preferences]);
 
   // Toggle Persona on the fly and re-rank homepage dynamically
   const handleTogglePersona = async (personaKey: keyof UserPreferences) => {
@@ -352,9 +298,9 @@ export default function HomePage() {
       <div className="flex-1 flex flex-col min-w-0 pb-32 sm:pb-28">
         {/* Floating Top Header Bar */}
         <Header
-          currentLocation={weather?.location || selectedLocation}
-          isLive={weather?.isLive ?? true}
-          cached={weather?.cached}
+          currentLocation={selectedLocation}
+          isLive={status === 'READY'}
+          cached={status === 'STALE' || status === 'OFFLINE' || Boolean(weather?.cached)}
           language={language}
           onLanguageChange={handleLanguageChange}
           onOpenSearch={() => setIsSearchOpen(true)}
@@ -362,11 +308,38 @@ export default function HomePage() {
           onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
           unreadCount={unreadNotifications}
           userName="Priya"
-          isOffline={isOffline}
+          isOffline={isWeatherOffline}
         />
 
         {/* Main Content Dashboard */}
         <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-8 lg:px-10 py-6 sm:py-8 space-y-8 sm:space-y-10">
+          {/* Real-time Location Permission Banner */}
+          <LocationPermissionBanner onOpenSearch={() => setIsSearchOpen(true)} />
+
+          {/* Stale / Offline Telemetry Indicator */}
+          {status === 'OFFLINE' && (
+            <div className="flex items-center gap-2 p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-bold">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <span>You are offline. Showing cached weather ({lastUpdated ? formatTimeAgo(lastUpdated) : 'saved telemetry'}).</span>
+            </div>
+          )}
+
+          {status === 'STALE' && (
+            <div className="flex items-center justify-between gap-2 p-3 rounded-2xl bg-sky-500/15 border border-sky-500/30 text-sky-300 text-xs font-semibold">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
+                <span>Showing recently cached weather ({lastUpdated ? formatTimeAgo(lastUpdated) : 'cached'}).</span>
+              </div>
+              <button 
+                onClick={refreshWeather} 
+                disabled={isRefreshing}
+                className="text-[11px] font-bold underline hover:text-white disabled:opacity-50"
+              >
+                {isRefreshing ? 'Refreshing...' : 'Refresh Now'}
+              </button>
+            </div>
+          )}
+
           {/* Lifestyle Persona Dynamic Toggles Bar */}
           <GlassPanel 
             variant="card"
@@ -416,33 +389,32 @@ export default function HomePage() {
             locations={savedLocations}
             activeLocationName={weather?.location?.name || selectedLocation.name}
             onSelect={(loc) => {
-              const targetLoc: WeatherLocation = {
-                name: loc.name,
-                region: loc.location_type,
+              setManualLocation({
+                latitude: loc.latitude,
+                longitude: loc.longitude,
+                city: loc.name,
+                locality: loc.location_type,
                 country: 'Saved Station',
-                lat: loc.latitude,
-                lon: loc.longitude
-              };
-              setSelectedLocation(targetLoc);
-              loadWeatherAndPersonalization(targetLoc);
+                source: 'saved'
+              });
             }}
           />
         )}
 
         {/* Loading Skeleton */}
-        {loading && <DashboardSkeleton />}
+        {status === 'LOADING' && !weather && <DashboardSkeleton />}
 
         {/* Error State */}
-        {!loading && error && (
+        {status === 'ERROR' && !weather && weatherError && (
           <ErrorState
             title="Live weather data temporarily unavailable."
-            message={error}
-            onRetry={() => loadWeatherAndPersonalization(selectedLocation)}
+            message={weatherError.message}
+            onRetry={retry}
           />
         )}
 
         {/* Populated Intelligent Dynamic Feed */}
-        {!loading && !error && weather && (
+        {weather && (
           <div className="space-y-6">
             {/* Prominent Cinematic MAUSAM AI Weather Intelligence Panel */}
             <AIAssistantHeroCard 
@@ -485,7 +457,8 @@ export default function HomePage() {
                         unit={preferences?.temperature_unit || 'celsius'}
                         windUnit={preferences?.wind_unit || 'kmh'}
                         language={language}
-                        onRefresh={() => loadWeatherAndPersonalization(selectedLocation)}
+                        isRefreshing={isRefreshing}
+                        onRefresh={refreshWeather}
                         onOpenSearch={() => setIsSearchOpen(true)}
                       />
                       {nowcast && !prioritizedCards.some(c => c.id === 'rain-warning') && (
@@ -625,7 +598,18 @@ export default function HomePage() {
             />
 
             {/* Interactive Weather Radar Map */}
-            <WeatherMapComponent weather={weather} />
+            <WeatherMapComponent 
+              weather={weather} 
+              onSelectLocation={(loc) => {
+                setManualLocation({
+                  latitude: loc.lat,
+                  longitude: loc.lon,
+                  city: loc.name,
+                  country: loc.country || '',
+                  source: 'search'
+                });
+              }}
+            />
 
             {/* Interactive Feature Worlds Selector Dock */}
             <FeatureDock
@@ -676,10 +660,17 @@ export default function HomePage() {
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
         onSelectLocation={(loc) => {
-          setSelectedLocation(loc);
-          loadWeatherAndPersonalization(loc);
+          setManualLocation({
+            latitude: loc.lat,
+            longitude: loc.lon,
+            city: loc.name,
+            locality: loc.region,
+            state: loc.region,
+            country: loc.country,
+            source: 'search'
+          });
         }}
-        onUseCurrentLocation={handleUseCurrentLocation}
+        onUseCurrentLocation={() => requestDeviceLocation()}
       />
 
       {/* AI Assistant Chat Drawer */}

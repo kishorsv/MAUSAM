@@ -36,43 +36,10 @@ export function formatTimeAgo(dateStringOrTimestamp: string | number): string {
   return `${Math.floor(diffInSeconds / 86400)}d ago`;
 }
 
+import { getWmoWeatherDescription as getCentralWmoWeatherDescription, WeatherCategory } from "./weather/wmo";
+
 export function getWmoWeatherDescription(code: number): { description: string; category: 'sunny' | 'cloudy' | 'rain' | 'storm' | 'snow' | 'fog' } {
-  switch (code) {
-    case 0:
-      return { description: 'Clear Sky', category: 'sunny' };
-    case 1:
-      return { description: 'Mainly Clear', category: 'sunny' };
-    case 2:
-      return { description: 'Partly Cloudy', category: 'cloudy' };
-    case 3:
-      return { description: 'Overcast', category: 'cloudy' };
-    case 45:
-    case 48:
-      return { description: 'Fog / Mist', category: 'fog' };
-    case 51:
-    case 53:
-    case 55:
-      return { description: 'Drizzle', category: 'rain' };
-    case 61:
-    case 63:
-    case 65:
-      return { description: 'Rain', category: 'rain' };
-    case 71:
-    case 73:
-    case 75:
-      return { description: 'Snowfall', category: 'snow' };
-    case 80:
-    case 81:
-    case 82:
-      return { description: 'Rain Showers', category: 'rain' };
-    case 95:
-      return { description: 'Thunderstorm', category: 'storm' };
-    case 96:
-    case 99:
-      return { description: 'Severe Thunderstorm & Hail', category: 'storm' };
-    default:
-      return { description: 'Variable Weather', category: 'cloudy' };
-  }
+  return getCentralWmoWeatherDescription(code);
 }
 
 export function getAqiCategory(aqi: number): { label: string; color: string; level: 'good' | 'moderate' | 'unhealthy-sensitive' | 'unhealthy' | 'very-unhealthy' | 'hazardous' } {

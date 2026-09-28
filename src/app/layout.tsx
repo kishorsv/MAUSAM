@@ -17,6 +17,9 @@ export const viewport: Viewport = {
   themeColor: '#05070d',
 };
 
+import { LocationProvider } from '@/components/location/LocationContext';
+import { WeatherProvider } from '@/components/weather/WeatherContext';
+
 export default function RootLayout({
   children,
 }: {
@@ -26,9 +29,13 @@ export default function RootLayout({
     <html lang="en" className="dark" data-theme="midnight-ai" data-mode="dark" suppressHydrationWarning>
       <body className="antialiased min-h-screen selection:bg-primary-500/30 selection:text-primary-200">
         <ThemeProvider>
-          <PersistentLivingBackground />
-          {children}
-          <ThemeSwitcherModal />
+          <LocationProvider>
+            <WeatherProvider>
+              <PersistentLivingBackground />
+              {children}
+              <ThemeSwitcherModal />
+            </WeatherProvider>
+          </LocationProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -21,7 +21,8 @@ export interface CurrentWeather {
   condition: string;
   isDay: boolean;
   precipitation: number; // mm
-  cloudCover?: number;
+  rain?: number; // mm
+  cloudCover?: number; // %
 }
 
 export interface AirQualityData {
@@ -44,12 +45,14 @@ export interface HourlyForecastItem {
   feelsLike: number;
   precipitationProbability: number; // %
   precipitation: number; // mm
+  rain?: number; // mm
   windSpeed: number;
   uvIndex: number;
   humidity: number;
   wmoCode: number;
   condition: string;
   isDay: boolean;
+  cloudCover?: number;
 }
 
 export interface DailyForecastItem {
@@ -58,6 +61,7 @@ export interface DailyForecastItem {
   temperatureMax: number;
   precipitationProbability: number; // %
   precipitationSum: number; // mm
+  rainSum?: number; // mm
   windSpeedMax: number;
   uvIndexMax: number;
   sunrise: string;

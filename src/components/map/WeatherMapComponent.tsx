@@ -16,13 +16,13 @@ export function WeatherMapComponent({ weather, onSelectLocation }: WeatherMapPro
 
   // Key reference points for regional weather map display
   const keyCities = [
-    { name: weather.location.name, temp: weather.current.temperature, rain: weather.hourly[0]?.precipitationProbability ?? 10, wind: weather.current.windSpeed, aqi: weather.airQuality?.aqi ?? 65, x: 50, y: 50, isCurrent: true },
-    { name: 'Bengaluru', temp: 24, rain: 20, wind: 14, aqi: 75, x: 42, y: 68 },
-    { name: 'Mumbai', temp: 31, rain: 65, wind: 24, aqi: 135, x: 28, y: 48 },
-    { name: 'Delhi NCR', temp: 28, rain: 15, wind: 10, aqi: 210, x: 38, y: 24 },
-    { name: 'Chennai', temp: 33, rain: 30, wind: 18, aqi: 82, x: 52, y: 72 },
-    { name: 'Kolkata', temp: 30, rain: 75, wind: 16, aqi: 142, x: 74, y: 44 },
-    { name: 'Hyderabad', temp: 29, rain: 25, wind: 15, aqi: 95, x: 45, y: 56 },
+    { name: weather.location.name, lat: weather.location.lat, lon: weather.location.lon, temp: weather.current.temperature, rain: weather.hourly[0]?.precipitationProbability ?? 10, wind: weather.current.windSpeed, aqi: weather.airQuality?.aqi ?? 65, x: 50, y: 50, isCurrent: true },
+    { name: 'Bengaluru', lat: 12.9716, lon: 77.5946, temp: 24, rain: 20, wind: 14, aqi: 75, x: 42, y: 68 },
+    { name: 'Mumbai', lat: 19.0760, lon: 72.8777, temp: 31, rain: 65, wind: 24, aqi: 135, x: 28, y: 48 },
+    { name: 'Delhi NCR', lat: 28.6139, lon: 77.2090, temp: 28, rain: 15, wind: 10, aqi: 210, x: 38, y: 24 },
+    { name: 'Chennai', lat: 13.0827, lon: 80.2707, temp: 33, rain: 30, wind: 18, aqi: 82, x: 52, y: 72 },
+    { name: 'Kolkata', lat: 22.5726, lon: 88.3639, temp: 30, rain: 75, wind: 16, aqi: 142, x: 74, y: 44 },
+    { name: 'Hyderabad', lat: 17.3850, lon: 78.4867, temp: 29, rain: 25, wind: 15, aqi: 95, x: 45, y: 56 },
   ];
 
   return (
@@ -118,14 +118,16 @@ export function WeatherMapComponent({ weather, onSelectLocation }: WeatherMapPro
             return (
               <div
                 key={idx}
+                onClick={() => onSelectLocation?.({ name: city.name, lat: city.lat, lon: city.lon, country: 'India' })}
                 className="absolute -translate-x-1/2 -translate-y-1/2 group cursor-pointer transition-transform hover:scale-110 z-20"
                 style={{ left: `${city.x}%`, top: `${city.y}%` }}
+                title={`Select ${city.name}`}
               >
                 {/* Marker Pin */}
                 <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border shadow-xl backdrop-blur-md transition-all ${
                   isTarget
                     ? 'bg-primary-600/90 text-white border-primary-400 ring-2 ring-primary-500/40 shadow-glow-primary scale-105'
-                    : 'bg-slate-900/90 text-slate-200 border-slate-700/80 hover:border-slate-500'
+                    : 'bg-slate-900/90 text-slate-200 border-slate-700/80 hover:border-slate-500 hover:bg-slate-800'
                 }`}>
                   <span className={`w-2 h-2 rounded-full ${
                     activeLayer === 'temp'

@@ -9,7 +9,7 @@ export class OpenMeteoProvider implements IWeatherProvider {
   /**
    * Resilient fetcher with strict timeout, retry limit, and exponential backoff
    */
-  private async fetchWithRetry(url: string, timeoutMs: number = 3500, retries: number = 1): Promise<Response> {
+  private async fetchWithRetry(url: string, timeoutMs: number = 4500, retries: number = 2): Promise<Response> {
     for (let attempt = 0; attempt <= retries; attempt++) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -25,21 +25,21 @@ export class OpenMeteoProvider implements IWeatherProvider {
       } catch (err: any) {
         clearTimeout(timeoutId);
         if (attempt === retries) throw err;
-        // Exponential backoff wait (250ms)
-        await new Promise(r => setTimeout(r, 250 * (attempt + 1)));
+        // Exponential backoff wait (300ms, 600ms)
+        await new Promise(r => setTimeout(r, 300 * Math.pow(2, attempt)));
       }
     }
     throw new Error(`Failed to fetch from ${url} after ${retries} retries`);
   }
 
   async getWeather(lat: number, lon: number, locationMeta?: Partial<WeatherLocation>): Promise<WeatherPayload> {
-    const forecastUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,surface_pressure,visibility,wind_speed_10m,uv_index,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,sunrise,sunset,uv_index_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max&timezone=auto`;
+    const forecastUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,cloud_cover,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation_probability,precipitation,rain,cloud_cover,weather_code,surface_pressure,visibility,wind_speed_10m,uv_index,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,sunrise,sunset,uv_index_max,precipitation_sum,rain_sum,precipitation_probability_max,wind_speed_10m_max&timezone=auto`;
     const aqiUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi,pm2_5,pm10,nitrogen_dioxide,sulphur_dioxide,ozone,carbon_monoxide,european_aqi&timezone=auto`;
 
     // Execute Forecast and AQI in parallel with error isolation
     const [forecastRes, aqiRes] = await Promise.allSettled([
-      this.fetchWithRetry(forecastUrl, 3800, 1),
-      this.fetchWithRetry(aqiUrl, 2500, 1) // Non-critical AQI timeout is shorter
+      this.fetchWithRetry(forecastUrl, 4500, 2),
+      this.fetchWithRetry(aqiUrl, 3000, 1) // Non-critical AQI timeout is shorter
     ]);
 
     if (forecastRes.status !== 'fulfilled' || !forecastRes.value.ok) {
@@ -100,6 +100,8 @@ export class OpenMeteoProvider implements IWeatherProvider {
           feelsLike: Math.round(hourlyRaw.apparent_temperature[i]),
           precipitationProbability: Math.round(hourlyRaw.precipitation_probability[i] || 0),
           precipitation: Number(hourlyRaw.precipitation[i] || 0),
+          rain: Number(hourlyRaw.rain?.[i] || 0),
+          cloudCover: hourlyRaw.cloud_cover?.[i] !== undefined ? Math.round(hourlyRaw.cloud_cover[i]) : undefined,
           windSpeed: Math.round(hourlyRaw.wind_speed_10m[i] || 0),
           uvIndex: Math.round(hourlyRaw.uv_index[i] || 0),
           humidity: Math.round(hourlyRaw.relative_humidity_2m[i] || 0),
@@ -121,6 +123,7 @@ export class OpenMeteoProvider implements IWeatherProvider {
           temperatureMax: Math.round(dailyRaw.temperature_2m_max[i]),
           precipitationProbability: Math.round(dailyRaw.precipitation_probability_max[i] || 0),
           precipitationSum: Number(dailyRaw.precipitation_sum[i] || 0),
+          rainSum: Number(dailyRaw.rain_sum?.[i] || 0),
           windSpeedMax: Math.round(dailyRaw.wind_speed_10m_max[i] || 0),
           uvIndexMax: Math.round(dailyRaw.uv_index_max[i] || 0),
           sunrise: dailyRaw.sunrise[i] ? dailyRaw.sunrise[i].slice(11, 16) : '--:--',
@@ -229,7 +232,9 @@ export class OpenMeteoProvider implements IWeatherProvider {
         wmoCode: currentRaw.weather_code,
         condition: currentWeatherDesc.description,
         isDay: Boolean(currentRaw.is_day),
-        precipitation: Number(currentRaw.precipitation || 0)
+        precipitation: Number(currentRaw.precipitation || 0),
+        rain: Number(currentRaw.rain || 0),
+        cloudCover: currentRaw.cloud_cover !== undefined ? Math.round(currentRaw.cloud_cover) : undefined
       },
       airQuality,
       hourly,

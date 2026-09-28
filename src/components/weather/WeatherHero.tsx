@@ -3,7 +3,7 @@
 import React from 'react';
 import { 
   Wind, Droplets, Compass, Eye, Gauge, Sparkles, Navigation,
-  Sunrise, Sunset, Radio, ShieldCheck, CloudRain
+  Sunrise, Sunset, Radio, ShieldCheck, CloudRain, Cloud, RotateCw
 } from 'lucide-react';
 import { WeatherPayload } from '@/lib/weather/types';
 import { formatTemperature, formatWindSpeed, formatTimeAgo } from '@/lib/utils';
@@ -17,6 +17,7 @@ interface WeatherHeroProps {
   unit?: 'celsius' | 'fahrenheit';
   windUnit?: 'kmh' | 'mph' | 'ms';
   language?: Language;
+  isRefreshing?: boolean;
   onRefresh?: () => void;
   onOpenSearch?: () => void;
 }
@@ -26,6 +27,7 @@ export function WeatherHero({
   unit = 'celsius',
   windUnit = 'kmh',
   language = 'en',
+  isRefreshing = false,
   onRefresh,
   onOpenSearch
 }: WeatherHeroProps) {
@@ -116,9 +118,20 @@ export function WeatherHero({
         </div>
 
         <div className="flex items-center gap-3 text-xs text-[var(--foreground-muted)]">
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/5 hover:bg-white/10 text-[11px] font-bold text-slate-200 border border-white/10 transition-all hover:text-white disabled:opacity-50"
+              title="Refresh live weather"
+            >
+              <RotateCw className={`w-3 h-3 text-[var(--primary)] ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+            </button>
+          )}
           <span className="font-mono text-[11px]">{t.lastUpdated}: {formatTimeAgo(weather.fetchedAt)}</span>
-          <span className="text-slate-600">•</span>
-          <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white/5 border border-white/5 font-semibold text-[11px] text-slate-300">
+          <span className="text-slate-600 hidden sm:inline">•</span>
+          <span className="hidden sm:flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white/5 border border-white/5 font-semibold text-[11px] text-slate-300">
             <Radio className="w-3 h-3 text-[var(--primary)]" />
             {weather.provider}
           </span>
@@ -176,14 +189,14 @@ export function WeatherHero({
           <div className="flex items-center justify-between text-xs sm:text-sm p-2 rounded-xl bg-white/5 border border-white/5">
             <span className="text-[var(--foreground-muted)]">Air Quality</span>
             <span className="font-bold font-mono text-emerald-400">
-              {weather.airQuality ? `AQI ${weather.airQuality.aqi} • ${weather.airQuality.status}` : 'Good (45)'}
+              {weather.airQuality && weather.airQuality.aqi !== undefined ? `AQI ${weather.airQuality.aqi} • ${weather.airQuality.status}` : 'Unavailable'}
             </span>
           </div>
         </div>
       </div>
 
-      {/* SUPPORTING METRIC CARDS (Wind, Humidity, UV, Visibility, Pressure, Dew Point) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 relative z-10 pt-5 border-t border-white/10">
+      {/* SUPPORTING METRIC CARDS (Wind, Humidity, Rain, Cloud Cover, UV, Visibility, Pressure) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 relative z-10 pt-5 border-t border-white/10">
         {/* Wind */}
         <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 hover:border-[var(--primary)] transition-all">
           <div className="flex items-center gap-1.5 text-xs text-[var(--foreground-muted)] mb-1">
@@ -205,10 +218,38 @@ export function WeatherHero({
             <span>{t.humidity}</span>
           </div>
           <div className="text-base font-extrabold text-[var(--foreground)] font-mono">
-            {current.humidity}%
+            {current.humidity !== undefined ? `${current.humidity}%` : '--'}
           </div>
           <div className="text-[10px] text-[var(--foreground-muted)] mt-0.5">
             {current.humidity > 70 ? 'High Moisture' : 'Comfortable'}
+          </div>
+        </div>
+
+        {/* Rain & Precipitation */}
+        <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 hover:border-blue-400 transition-all">
+          <div className="flex items-center gap-1.5 text-xs text-[var(--foreground-muted)] mb-1">
+            <CloudRain className="w-3.5 h-3.5 text-blue-400" />
+            <span>Rain</span>
+          </div>
+          <div className="text-base font-extrabold text-[var(--foreground)] font-mono">
+            {current.rain !== undefined ? `${current.rain} mm` : current.precipitation !== undefined ? `${current.precipitation} mm` : '--'}
+          </div>
+          <div className="text-[10px] text-blue-400 mt-0.5 font-medium">
+            {(current.rain || current.precipitation) > 0 ? 'Active Rain' : 'Dry Surface'}
+          </div>
+        </div>
+
+        {/* Cloud Cover */}
+        <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 hover:border-sky-400 transition-all">
+          <div className="flex items-center gap-1.5 text-xs text-[var(--foreground-muted)] mb-1">
+            <Cloud className="w-3.5 h-3.5 text-sky-400" />
+            <span>Cloud Cover</span>
+          </div>
+          <div className="text-base font-extrabold text-[var(--foreground)] font-mono">
+            {current.cloudCover !== undefined ? `${current.cloudCover}%` : '--'}
+          </div>
+          <div className="text-[10px] text-[var(--foreground-muted)] mt-0.5">
+            {current.cloudCover !== undefined && current.cloudCover > 60 ? 'Overcast Sky' : 'Clear Spans'}
           </div>
         </div>
 
@@ -219,7 +260,7 @@ export function WeatherHero({
             <span>{t.uvIndex}</span>
           </div>
           <div className="text-base font-extrabold text-[var(--foreground)] font-mono">
-            {current.uvIndex} <span className="text-xs font-normal text-slate-400">/12</span>
+            {current.uvIndex !== undefined ? current.uvIndex : '--'} <span className="text-xs font-normal text-slate-400">/12</span>
           </div>
           <div className="text-[10px] text-amber-400 mt-0.5 font-medium">
             {current.uvIndex >= 8 ? 'Very High' : current.uvIndex >= 6 ? 'High' : 'Moderate'}
@@ -233,7 +274,7 @@ export function WeatherHero({
             <span>{t.visibility}</span>
           </div>
           <div className="text-base font-extrabold text-[var(--foreground)] font-mono">
-            {current.visibility} km
+            {current.visibility !== undefined ? `${current.visibility} km` : '--'}
           </div>
           <div className="text-[10px] text-[var(--foreground-muted)] mt-0.5">
             {current.visibility >= 10 ? 'Optimal' : 'Moderate'}
@@ -247,24 +288,10 @@ export function WeatherHero({
             <span>{t.pressure}</span>
           </div>
           <div className="text-base font-extrabold text-[var(--foreground)] font-mono">
-            {current.pressure} hPa
+            {current.pressure !== undefined ? `${current.pressure} hPa` : '--'}
           </div>
           <div className="text-[10px] text-[var(--foreground-muted)] mt-0.5">
             {current.pressure > 1013 ? 'High (Stable)' : 'Low (Variable)'}
-          </div>
-        </div>
-
-        {/* Precipitation */}
-        <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 hover:border-cyan-400 transition-all">
-          <div className="flex items-center gap-1.5 text-xs text-[var(--foreground-muted)] mb-1">
-            <CloudRain className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Precipitation</span>
-          </div>
-          <div className="text-base font-extrabold text-[var(--foreground)] font-mono">
-            {current.precipitation} mm
-          </div>
-          <div className="text-[10px] text-cyan-400 mt-0.5 font-medium">
-            {current.precipitation > 0 ? 'Active Rain' : 'Dry Surface'}
           </div>
         </div>
       </div>
