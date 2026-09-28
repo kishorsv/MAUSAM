@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getCurrentUser();
     const userId = session?.userId || 'usr-demo-01';
-    const { name, latitude, longitude, location_type, is_pinned } = await req.json();
+    const { name, label, latitude, longitude, location_type, is_pinned, place_id, address } = await req.json();
 
     if (!name || latitude === undefined || longitude === undefined) {
       return NextResponse.json({ error: "Name, latitude, and longitude are required." }, { status: 400 });
@@ -25,10 +25,13 @@ export async function POST(req: NextRequest) {
 
     const newLoc = await db.addSavedLocation(userId, {
       name,
+      label: label || location_type || 'custom',
       latitude: Number(latitude),
       longitude: Number(longitude),
       location_type: location_type || 'custom',
-      is_pinned: Boolean(is_pinned)
+      is_pinned: Boolean(is_pinned),
+      place_id,
+      address
     });
 
     return NextResponse.json({ success: true, location: newLoc }, { status: 201 });

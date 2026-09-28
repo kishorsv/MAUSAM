@@ -7,9 +7,13 @@ import { Header } from '@/components/navigation/Header';
 import { MobileBottomNav } from '@/components/navigation/MobileBottomNav';
 import { RouteTrip } from '@/lib/db/types';
 import { formatTemperature } from '@/lib/utils';
+import { useWeather } from '@/components/weather/WeatherContext';
+import { GoogleWeatherMap } from '@/components/map/GoogleWeatherMap';
 
 export default function RouteWeatherPage() {
+  const { weather } = useWeather();
   const [trips, setTrips] = useState<RouteTrip[]>([]);
+  const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [title, setTitle] = useState('');
@@ -164,6 +168,26 @@ export default function RouteWeatherPage() {
               <button type="submit" className="px-4 py-1.5 rounded-xl bg-primary-600 hover:bg-primary-500 text-xs font-semibold text-white">Save Route</button>
             </div>
           </form>
+        )}
+
+        {/* Active Route Corridor Google Map */}
+        {weather && trips.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs text-slate-400 px-1">
+              <span>Active Route Map Visualization</span>
+              <span>Showing road weather nodes</span>
+            </div>
+            <GoogleWeatherMap
+              weather={weather}
+              routeWaypoints={
+                (trips.find(t => t.id === selectedTripId) || trips[0])?.waypoints.map(w => ({
+                  name: w.name,
+                  lat: w.latitude,
+                  lon: w.longitude
+                }))
+              }
+            />
+          </div>
         )}
 
         {/* Saved Routes List */}

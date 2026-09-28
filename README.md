@@ -154,6 +154,78 @@ cp .env.example .env.local
 
 ---
 
+## 🗺️ Google Maps Platform Setup
+
+MAUSAM integrates real Google Maps Platform APIs for interactive vector mapping, real Google satellite imagery, multi-city meteorological pins, Google Places search autocomplete, saved locations, and transit route corridors.
+
+Official Google Documentation: [Google Maps Platform Quickstart](https://developers.google.com/maps/documentation/javascript/get-api-key)
+
+### Step-by-Step Setup Guide
+
+1. **Create or Select a Google Cloud Project**:
+   - Go to [Google Cloud Console](https://console.cloud.google.com/).
+   - Create a new project named `MAUSAM-Weather-Intelligence` (or select an existing project).
+
+2. **Enable Billing Account**:
+   - Navigate to **Billing** in Google Cloud Console.
+   - Attach a valid billing account to activate Google Maps APIs (Google provides a monthly free tier credit of \$200).
+
+3. **Enable Only Required Google Maps APIs**:
+   In **APIs & Services > Library**, enable only the APIs utilized by MAUSAM:
+   - **Maps JavaScript API** (for interactive vector, satellite, hybrid, and terrain views)
+   - **Places API** / **Places API (New)** (for search box location autocomplete)
+   - **Geocoding API** (for reverse coordinates geocoding)
+   - **Routes API** / **Directions API** (for corridor routing weather visualization)
+   > *Note: Do not enable unrelated Google APIs to keep project security tight.*
+
+4. **Generate an API Key**:
+   - Go to **APIs & Services > Credentials**.
+   - Click **+ Create Credentials > API Key**.
+
+5. **Apply Application / HTTP Referrer Restrictions**:
+   - Under **Set application restrictions**, choose **Websites (HTTP referrers)**.
+   - Add authorized development and production origins:
+     ```text
+     http://localhost:3000/*
+     http://127.0.0.1:3000/*
+     https://your-production-domain.com/*
+     https://*.vercel.app/*
+     ```
+   > *Never use an unrestricted API key in production to avoid unauthorized usage.*
+
+6. **Apply API Restrictions**:
+   - Under **API restrictions**, select **Restrict key**.
+   - Check only:
+     - *Maps JavaScript API*
+     - *Places API*
+     - *Geocoding API*
+     - *Routes API* / *Directions API*
+   - Save changes.
+
+7. **Configure Environment Variables**:
+   Add your public key to `.env.local`:
+   ```bash
+   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_actual_browser_api_key_here
+   ```
+   *(Or alias `NEXT_PUBLIC_GOOGLE_MAPS_KEY`)*
+
+8. **Restart Local Development Server**:
+   ```bash
+   npm run dev
+   ```
+
+9. **Test Interactive Map**:
+   - Visit `http://localhost:3000/map` or the homepage map widget.
+   - Test mode switching: **[ Map ]**, **[ Satellite ]**, **[ Hybrid ]**, **[ Terrain ]**.
+   - Test **"Use my location"**, **Places Search**, and **Multi-City pins**.
+   - Open Developer Diagnostics drawer `[⚡ Diagnostics]` to inspect live SDK telemetry.
+
+10. **Cost Protection & Budget Alerts**:
+    - In **Billing > Budgets & alerts**, set up a budget alert (e.g. \$20 threshold) to prevent unexpected charges.
+    - Set daily request quotas under **APIs & Services > Maps JavaScript API > Quotas**.
+
+---
+
 ## 👥 Demo Credentials
 Pre-seeded in the database for instant testing:
 - **Demo User**: `user@mausam.app` / `User@12345`
