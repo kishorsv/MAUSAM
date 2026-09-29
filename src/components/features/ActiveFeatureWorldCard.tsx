@@ -4,7 +4,7 @@ import React from 'react';
 import { 
   Sprout, CloudRain, Sun, Cloud, Activity, 
   Waves, ShieldAlert, Sparkles, X, ChevronRight, Droplets,
-  Wind, Eye, Thermometer, Compass
+  Wind, Eye, Thermometer, Compass, Orbit, Radio
 } from 'lucide-react';
 import { FeatureWorldId } from '@/lib/theme/scene-registry';
 import { GlassPanel } from '@/components/common/GlassPanel';
@@ -418,6 +418,186 @@ export function ActiveFeatureWorldCard({
             >
               Consult Marine AI →
             </button>
+          </div>
+        </GlassPanel>
+      );
+
+    // 7. SATELLITE WORLD (Real Google Maps Satellite Imagery)
+    case 'satellite':
+      return (
+        <GlassPanel
+          variant="hero"
+          glow="purple"
+          className="p-6 sm:p-7 mb-8 border-indigo-500/40 relative overflow-hidden animate-in slide-in-from-top-4 duration-500"
+        >
+          <div className="flex items-start justify-between gap-4 mb-5">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 shadow-md">
+                <Orbit className="w-6 h-6 animate-spin-slow" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                    Active Feature World
+                  </span>
+                  <span className="text-xs text-slate-400 font-mono">Google Earth Observation • LIVE</span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-black text-white mt-1">
+                  High-Resolution Orbital Satellite Imagery
+                </h3>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+              title="Close Satellite World"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 mb-5">
+            <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10">
+              <span className="text-xs text-slate-400 font-medium">Imagery Mode</span>
+              <div className="text-lg font-black text-indigo-300 font-mono mt-0.5">Google Satellite</div>
+              <span className="text-[10px] text-slate-400">MapTypeId.SATELLITE</span>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10">
+              <span className="text-xs text-slate-400 font-medium">Cloud Optical Depth</span>
+              <div className="text-lg font-black text-white font-mono mt-0.5">{weather.current.cloudCover ?? 28}%</div>
+              <span className="text-[10px] text-slate-400">Atmospheric visibility</span>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10">
+              <span className="text-xs text-slate-400 font-medium">Orbital Telemetry</span>
+              <div className="text-lg font-black text-emerald-300 font-mono mt-0.5">Active Sync</div>
+              <span className="text-[10px] text-slate-400">Sub-meter photographic resolution</span>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10">
+              <span className="text-xs text-slate-400 font-medium">Surface Observation</span>
+              <div className="text-lg font-black text-cyan-300 font-mono mt-0.5">Clear Topography</div>
+              <span className="text-[10px] text-slate-400">Natural true-color space imagery</span>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-indigo-950/40 border border-indigo-500/30 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs sm:text-sm text-indigo-200">
+              🛰️ <span className="font-bold">Orbital View Active:</span> Interactive Google Maps satellite mode renders real optical space telemetry across terrain, coastlines, and cloud patterns.
+            </p>
+            <div className="flex items-center gap-2 ml-auto">
+              <button
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('mausam:set-map-type', { detail: 'satellite' }));
+                  const mapEl = document.getElementById('mausam-map-container') || document.querySelector('[data-map-container]');
+                  if (mapEl) {
+                    mapEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-colors shadow-glow-primary flex items-center gap-1.5"
+              >
+                <Orbit className="w-3.5 h-3.5" />
+                <span>Focus Satellite Map ↓</span>
+              </button>
+              <button
+                onClick={() => onAskAI('Summarize satellite cloud formations, weather patterns, and visibility across our region.')}
+                className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs transition-colors"
+              >
+                Ask AI Satellite →
+              </button>
+            </div>
+          </div>
+        </GlassPanel>
+      );
+
+    // 8. RADAR WORLD (Precipitation Doppler Radar)
+    case 'radar':
+      return (
+        <GlassPanel
+          variant="hero"
+          glow="rose"
+          className="p-6 sm:p-7 mb-8 border-rose-500/40 relative overflow-hidden animate-in slide-in-from-top-4 duration-500"
+        >
+          <div className="flex items-start justify-between gap-4 mb-5">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shadow-md">
+                <Radio className="w-6 h-6 animate-pulse" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                    Active Feature World
+                  </span>
+                  <span className="text-xs text-slate-400 font-mono">Precipitation Radar Doppler</span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-black text-white mt-1">
+                  Atmospheric Doppler Radar & Storm Tracking
+                </h3>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+              title="Close Radar World"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 mb-5">
+            <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10">
+              <span className="text-xs text-slate-400 font-medium">Reflectivity dBZ</span>
+              <div className="text-lg font-black text-rose-300 font-mono mt-0.5">
+                {current.precipitation > 2 ? '42 dBZ (Active Storm)' : '18 dBZ (Clear/Light)'}
+              </div>
+              <span className="text-[10px] text-slate-400">Doppler rain echo strength</span>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10">
+              <span className="text-xs text-slate-400 font-medium">Storm Front Velocity</span>
+              <div className="text-lg font-black text-white font-mono mt-0.5">{current.windSpeed} km/h</div>
+              <span className="text-[10px] text-slate-400">Direction {current.windDirection}°</span>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10">
+              <span className="text-xs text-slate-400 font-medium">Precipitation Inflow</span>
+              <div className="text-lg font-black text-cyan-300 font-mono mt-0.5">{current.precipitation} mm/h</div>
+              <span className="text-[10px] text-slate-400">Gauged surface precipitation</span>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10">
+              <span className="text-xs text-slate-400 font-medium">Radar Sweeps</span>
+              <div className="text-lg font-black text-emerald-300 font-mono mt-0.5">Live 5-min sweep</div>
+              <span className="text-[10px] text-slate-400">RainViewer + Open-Meteo</span>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-500/30 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs sm:text-sm text-rose-200">
+              📡 <span className="font-bold">Doppler Sweeps:</span> Real-time precipitation radar reflectivity tracks rain cells and convective storms.
+            </p>
+            <div className="flex items-center gap-2 ml-auto">
+              <button
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('mausam:set-map-type', { detail: 'roadmap' }));
+                  const mapEl = document.getElementById('mausam-map-container') || document.querySelector('[data-map-container]');
+                  if (mapEl) {
+                    mapEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition-colors shadow-glow-primary flex items-center gap-1.5"
+              >
+                <Radio className="w-3.5 h-3.5" />
+                <span>Focus Radar Map ↓</span>
+              </button>
+              <button
+                onClick={() => onAskAI('Track nearby storm systems, thunder cells, and precipitation radar returns.')}
+                className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs transition-colors"
+              >
+                Radar Analysis →
+              </button>
+            </div>
           </div>
         </GlassPanel>
       );

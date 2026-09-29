@@ -195,8 +195,6 @@ export function GoogleWeatherMap({
       setDiagnostic(diag);
       if (status === 'ready') {
         setMapMode('google');
-      } else if (status === 'error' || status === 'auth_failed' || status === 'not_configured') {
-        setMapMode('radar');
       }
     });
 
@@ -205,7 +203,7 @@ export function GoogleWeatherMap({
     return () => unsubscribe();
   }, []);
 
-  // Handle external map type changes (e.g. from Satellite page or FeatureDock)
+  // Core: Switch Map Type on Existing Map Instance
   const handleMapTypeChange = useCallback((targetType: GoogleMapType) => {
     setSelectedMapType(targetType);
 
@@ -227,7 +225,7 @@ export function GoogleWeatherMap({
 
       const typeId = resolveMapTypeId(targetType, g);
 
-      // CRITICAL: Call setMapTypeId on existing map instance without reload!
+      // CRITICAL: Call setMapTypeId on the existing map instance without reload!
       mapInstanceRef.current.setMapTypeId(typeId);
 
       // Dark style on roadmap; natural crystal clarity on satellite/hybrid
@@ -245,11 +243,24 @@ export function GoogleWeatherMap({
     }
   }, []);
 
+  // Handle external map type changes (e.g. from Satellite page or FeatureDock)
   useEffect(() => {
     if (externalMapType && ['roadmap', 'satellite', 'hybrid', 'terrain'].includes(externalMapType)) {
       handleMapTypeChange(externalMapType);
     }
   }, [externalMapType, handleMapTypeChange]);
+
+  // Global event listener for direct map type switching from feature worlds & satellite docks
+  useEffect(() => {
+    const handleGlobalSetMapType = (e: any) => {
+      const type = e?.detail;
+      if (type && ['roadmap', 'satellite', 'hybrid', 'terrain'].includes(type)) {
+        handleMapTypeChange(type);
+      }
+    };
+    window.addEventListener('mausam:set-map-type', handleGlobalSetMapType);
+    return () => window.removeEventListener('mausam:set-map-type', handleGlobalSetMapType);
+  }, [handleMapTypeChange]);
 
   // Fullscreen change listener
   useEffect(() => {
@@ -329,12 +340,19 @@ export function GoogleWeatherMap({
           });
 
           autocompleteRef.current = autocomplete;
-        } catch {
-          // Places library restriction fallback handled by internal search
-        }
+        } catch {}
       }
     } else {
-      mapInstanceRef.current.panTo(centerLatLng);
+      // Existing map instance: verify mapTypeId is synchronized
+      const currentTypeId = resolveMapTypeId(selectedMapType, g);
+      if (mapInstanceRef.current.getMapTypeId() !== currentTypeId) {
+        mapInstanceRef.current.setMapTypeId(currentTypeId);
+        if (selectedMapType === 'roadmap') {
+          mapInstanceRef.current.setOptions({ styles: GOOGLE_MAPS_DARK_STYLE });
+        } else {
+          mapInstanceRef.current.setOptions({ styles: null });
+        }
+      }
     }
 
     // Refresh Current Location Pin Marker
@@ -393,7 +411,6 @@ export function GoogleWeatherMap({
     if (!showMultiCity) return;
 
     KEY_CITIES.forEach(city => {
-      // Don't duplicate current center pin
       if (Math.abs(city.lat - weatherLat) < 0.05 && Math.abs(city.lon - weatherLon) < 0.05) return;
 
       const m = new g.Marker({
@@ -633,6 +650,7 @@ export function GoogleWeatherMap({
 
   return (
     <div 
+      id="mausam-map-container"
       ref={containerRef}
       className={`glass-panel rounded-3xl p-4 sm:p-6 border border-white/5 relative overflow-hidden space-y-4 transition-all duration-300 ${
         isFullscreen ? 'fixed inset-0 z-50 rounded-none bg-slate-950 p-6' : ''
@@ -698,67 +716,78 @@ export function GoogleWeatherMap({
           )}
         </div>
 
-        {/* View Mode Controls: [ Map ] [ Satellite ] [ Hybrid ] [ Terrain ] */}
+        {/* View Mode Controls: [ Map ] [ Satellite ] [ Hybrid ] [ Terrain ] — ALWAYS ACCESSIBLE */}
         <div className="flex flex-wrap items-center gap-2">
-          {loaderStatus === 'ready' && (
-            <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-md">
-              <button
-                onClick={() => handleMapTypeChange('roadmap')}
-                disabled={!isMapReady}
-                title={!isMapReady ? 'Map is still loading...' : 'Switch to standard roadmap'}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                  mapMode === 'google' && selectedMapType === 'roadmap'
-                    ? 'bg-primary-600 text-white shadow-sm ring-1 ring-primary-400/50'
-                    : 'text-slate-400 hover:text-white hover:bg-white/5'
-                } ${!isMapReady ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                Map
-              </button>
+          <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-md">
+            <button
+              onClick={() => handleMapTypeChange('roadmap')}
+              title={!isMapReady ? 'Map is still loading...' : 'Switch to standard roadmap'}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                selectedMapType === 'roadmap'
+                  ? 'bg-primary-600 text-white shadow-sm ring-1 ring-primary-400/50'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <span>Map</span>
+              {selectedMapType === 'roadmap' && (
+                <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-white/20 text-white ml-1">
+                  ACTIVE
+                </span>
+              )}
+            </button>
 
-              <button
-                onClick={() => handleMapTypeChange('satellite')}
-                disabled={!isMapReady}
-                title={!isMapReady ? 'Map is still loading...' : 'Switch to real Google Satellite imagery'}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                  mapMode === 'google' && selectedMapType === 'satellite'
-                    ? 'bg-indigo-600 text-white shadow-glow-primary ring-1 ring-indigo-400/50'
-                    : 'text-slate-400 hover:text-white hover:bg-white/5'
-                } ${!isMapReady ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <Orbit className="w-3.5 h-3.5" />
-                <span>Satellite</span>
-                {mapMode === 'google' && selectedMapType === 'satellite' && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
-                )}
-              </button>
+            <button
+              onClick={() => handleMapTypeChange('satellite')}
+              title={!isMapReady ? 'Map is still loading...' : 'Switch to real Google Satellite imagery'}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                selectedMapType === 'satellite'
+                  ? 'bg-indigo-600 text-white shadow-glow-primary ring-1 ring-indigo-400/50'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Orbit className="w-3.5 h-3.5" />
+              <span>Satellite</span>
+              {selectedMapType === 'satellite' ? (
+                <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-emerald-400 text-slate-950 ml-1 animate-pulse">
+                  ACTIVE
+                </span>
+              ) : null}
+            </button>
 
-              <button
-                onClick={() => handleMapTypeChange('hybrid')}
-                disabled={!isMapReady}
-                title={!isMapReady ? 'Map is still loading...' : 'Switch to Satellite with labels'}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                  mapMode === 'google' && selectedMapType === 'hybrid'
-                    ? 'bg-sky-600 text-white shadow-sm ring-1 ring-sky-400/50'
-                    : 'text-slate-400 hover:text-white hover:bg-white/5'
-                } ${!isMapReady ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                Hybrid
-              </button>
+            <button
+              onClick={() => handleMapTypeChange('hybrid')}
+              title={!isMapReady ? 'Map is still loading...' : 'Switch to Satellite with labels'}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                selectedMapType === 'hybrid'
+                  ? 'bg-sky-600 text-white shadow-sm ring-1 ring-sky-400/50'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <span>Hybrid</span>
+              {selectedMapType === 'hybrid' && (
+                <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-white/20 text-white ml-1">
+                  ACTIVE
+                </span>
+              )}
+            </button>
 
-              <button
-                onClick={() => handleMapTypeChange('terrain')}
-                disabled={!isMapReady}
-                title={!isMapReady ? 'Map is still loading...' : 'Switch to topographic terrain'}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                  mapMode === 'google' && selectedMapType === 'terrain'
-                    ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-400/50'
-                    : 'text-slate-400 hover:text-white hover:bg-white/5'
-                } ${!isMapReady ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                Terrain
-              </button>
-            </div>
-          )}
+            <button
+              onClick={() => handleMapTypeChange('terrain')}
+              title={!isMapReady ? 'Map is still loading...' : 'Switch to topographic terrain'}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                selectedMapType === 'terrain'
+                  ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-400/50'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <span>Terrain</span>
+              {selectedMapType === 'terrain' && (
+                <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-white/20 text-white ml-1">
+                  ACTIVE
+                </span>
+              )}
+            </button>
+          </div>
 
           {/* Toggle Multi-city & Save location buttons */}
           <button
@@ -923,34 +952,6 @@ export function GoogleWeatherMap({
         </div>
       )}
 
-      {/* User-Friendly Notice Banner when Google Maps is Unavailable */}
-      {loaderStatus !== 'ready' && mapMode !== 'google' && (
-        <div className="flex flex-wrap items-center justify-between p-3 rounded-2xl bg-amber-950/40 border border-amber-500/30 text-amber-200 text-xs gap-3">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
-            <span>
-              <strong>Google Maps Platform Notice:</strong> {diagnostic.message}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                loadGoogleMapsScript().then(() => setMapMode('google')).catch(() => {});
-              }}
-              className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 font-semibold transition-colors flex items-center gap-1"
-            >
-              <RefreshCw className="w-3 h-3" /> Retry
-            </button>
-            <button
-              onClick={() => setIsDiagnosticsOpen(true)}
-              className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/15 text-slate-200 transition-colors"
-            >
-              Diagnostics
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Map Canvas Container */}
       <div className={`relative w-full ${isFullscreen ? 'h-[calc(100vh-140px)]' : 'h-[400px] sm:h-[500px]'} rounded-2xl bg-slate-950 border border-slate-800/80 overflow-hidden flex items-center justify-center`}>
         {/* Google Map Target Div */}
@@ -968,10 +969,10 @@ export function GoogleWeatherMap({
         )}
 
         {/* Map Loading State Notice if container pending */}
-        {mapMode === 'google' && !isMapReady && loaderStatus === 'loading' && (
+        {mapMode === 'google' && !isMapReady && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm z-20 space-y-2">
             <Orbit className="w-8 h-8 text-indigo-400 animate-spin-slow" />
-            <p className="text-xs text-slate-300 font-mono">Initializing Google Maps SDK...</p>
+            <p className="text-xs text-slate-300 font-mono">Initializing Google Maps Platform...</p>
           </div>
         )}
 
