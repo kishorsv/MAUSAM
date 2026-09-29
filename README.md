@@ -1,6 +1,6 @@
 # MAUSAM — Smart Personalized Weather Intelligence Platform
 
-🔗 Live Demo: https://mausam-mzqf.vercel.app/
+🔗 Live Demo: mausam-7kfw.vercel.app
 
 > **“Development of personalized homepage for ‘Mausam’ mobile application.”**
 
